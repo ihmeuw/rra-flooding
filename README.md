@@ -1,16 +1,10 @@
 # RRA Flooding
 
-[![PyPI](https://img.shields.io/pypi/v/rra-flooding?style=flat-square)](https://pypi.python.org/pypi/rra-flooding/)
-[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/rra-flooding?style=flat-square)](https://pypi.python.org/pypi/rra-flooding/)
-[![PyPI - License](https://img.shields.io/pypi/l/rra-flooding?style=flat-square)](https://pypi.python.org/pypi/rra-flooding/)
-
 ---
 
-**Documentation**: [https://bcreiner.github.io/rra-flooding](https://bcreiner.github.io/rra-flooding)
+**Documentation**: [https://ihmeuw.github.io/rra-flooding](https://ihmeuw.github.io/rra-flooding)
 
-**Source Code**: [https://github.com/bcreiner/rra-flooding](https://github.com/bcreiner/rra-flooding)
-
-**PyPI**: [https://pypi.org/project/rra-flooding/](https://pypi.org/project/rra-flooding/)
+**Source Code**: [https://github.com/ihmeuw/rra-flooding](https://github.com/ihmeuw/rra-flooding)
 
 ---
 
@@ -27,7 +21,7 @@ pip install rra-flooding
 * Clone this repository
 * Requirements:
   * [Poetry](https://python-poetry.org/)
-  * Python 3.10+
+  * Python 3.12+
 * Create a virtual environment and install the dependencies
 
 ```sh
@@ -51,16 +45,6 @@ pytest
 The documentation is automatically generated from the content of the `docs` directory and from the docstrings
  of the public signatures of the source code. The documentation is updated and published as a [Github project page
  ](https://pages.github.com/) automatically as part each release.
-
-### Releasing
-
-Trigger the [Draft release workflow](https://github.com/bcreiner/rra-flooding/actions/workflows/draft_release.yml)
-(press _Run workflow_). This will update the changelog & version and create a GitHub release which is in _Draft_ state.
-
-Find the draft release from the
-[GitHub releases](https://github.com/bcreiner/rra-flooding/releases) and publish it. When
- a release is published, it'll trigger [release](https://github.com/bcreiner/rra-flooding/blob/master/.github/workflows/release.yml) workflow which creates PyPI
- release and deploys updated documentation.
 
 ### Pre-commit
 

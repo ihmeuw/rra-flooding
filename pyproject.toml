@@ -13,9 +13,9 @@ dependencies = [
 ]
 
 [project.urls]
-homepage = "https://bcreiner.github.io/rra-flooding"
-repository = "https://github.com/bcreiner/rra-flooding"
-documentation = "https://bcreiner.github.io/rra-flooding"
+homepage = "https://ihmeuw.github.io/rra-flooding"
+repository = "https://github.com/ihmeuw/rra-flooding"
+documentation = "https://ihmeuw.github.io/rra-flooding"
 
 [project.scripts]
 my-cli = "rra_flooding.cli:main"
