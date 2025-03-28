@@ -1,0 +1,19 @@
+{
+  "template": "https://github.com/collijk/python-package-cookiecutter",
+  "commit": "d86abba2604d3fb06b718d45a83170b6315debde",
+  "checkout": null,
+  "context": {
+    "cookiecutter": {
+      "author_name": "Bobby Reiner",
+      "author_email": "bcreiner@uw.edu",
+      "github_username": "bcreiner",
+      "project_name": "RRA Flooding",
+      "project_slug": "rra-flooding",
+      "package_name": "rra_flooding",
+      "project_short_description": "Flooding in the past and future at the 100m",
+      "_template": "https://github.com/collijk/python-package-cookiecutter",
+      "_commit": "d86abba2604d3fb06b718d45a83170b6315debde"
+    }
+  },
+  "directory": null
+}
