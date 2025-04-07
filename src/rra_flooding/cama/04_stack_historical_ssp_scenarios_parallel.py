@@ -3,6 +3,9 @@ import uuid
 from jobmon.client.tool import Tool # type: ignore
 from pathlib import Path
 
+# Code directory
+REPO_ROOT = Path.cwd()
+
 # Flood Fraction Directory
 BASE_PATH = Path('/mnt/team/rapidresponse/pub/flooding/output/fldfrc')
 # Models, scenarios
@@ -59,11 +62,13 @@ task_template = tool.get_task_template(
         "stdout": str(stdout_dir),
         "stderr": str(stderr_dir),
     },
-    command_template="python ~/repos/rra-flooding/src/rra_flooding/cama/04_stack_historical_ssp_scenarios.py "
-                     "--model {model} "
-                     "--scenario {scenario} ",
-    node_args=["model", "scenario"],  # 👈 Include years in node_args
-    task_args=[],  # Only variation is task-specific
+    command_template=(
+        "python {repo_root}/04_stack_historical_ssp_scenarios.py "
+        "--model {{model}} "
+        "--scenario {{scenario}} "
+    ).format(repo_root=REPO_ROOT),
+    node_args=["model", "scenario"],  
+    task_args=[],  
     op_args=[],
 )
 
