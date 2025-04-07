@@ -4,7 +4,8 @@ from jobmon.client.tool import Tool # type: ignore
 from pathlib import Path
 
 # Code directory
-CODE_DIR = Path("/repos/rra-flooding/src/rra_flooding/cama/")
+REPO_ROOT = Path.cwd()
+
 # Flood Fraction Directory
 BASE_PATH = Path('/mnt/team/rapidresponse/pub/flooding/output/fldfrc')
 # Models, scenarios
@@ -61,16 +62,17 @@ task_template = tool.get_task_template(
         "stdout": str(stdout_dir),
         "stderr": str(stderr_dir),
     },
-    command_template="python ~/repos/rra-flooding/src/rra_flooding/cama/02_adjust_daily_netcdf.py "
-                     "--model {model} "
-                     "--scenario {scenario} "
-                     "--variant {variant} "
-                     "--year {year}",  # 👈 Add year argument to command
-    node_args=["model", "scenario", "year"],  # 👈 Include years in node_args
-    task_args=["variant"],  # Only variant is task-specific
+    command_template=(
+        "python {repo_root}/02_adjust_daily_netcdf.py "
+        "--model {{model}} "
+        "--scenario {{scenario}} "
+        "--variant {{variant}} "
+        "--year {{year}} "
+    ).format(repo_root=REPO_ROOT),
+    node_args=["model", "scenario", "year"], 
+    task_args=["variant"],  
     op_args=[],
 )
-
 
 
 # Add tasks
