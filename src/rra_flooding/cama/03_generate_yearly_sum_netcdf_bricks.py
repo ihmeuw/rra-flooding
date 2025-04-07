@@ -17,6 +17,9 @@ parser.add_argument("--variant", type=str, default="r1i1p1f1", help="Model varia
 # Parse arguments
 args = parser.parse_args()
 
+covariate = "fldfrc_weighted"
+new_covariate = "fldfrc_weighted_sum"
+
 OUTPUT_ROOT = Path("/mnt/team/rapidresponse/pub/flooding/output/fldfrc")
 
 def create_yearly_summary_netcdf(model: str, scenario: str, variant: str = "r1i1p1f1") -> None:
@@ -34,8 +37,8 @@ def create_yearly_summary_netcdf(model: str, scenario: str, variant: str = "r1i1
         start_year, end_year = 2015, 2100
 
     for year in range(start_year, end_year + 1):
-        input_file = input_dir / f"flood_fraction_std_{year}.nc"
-        output_file = output_dir / f"flood_fraction_sum_std_{year}.nc"
+        input_file = input_dir / f"{covariate}_{year}.nc"
+        output_file = output_dir / f"{new_covariate}_{year}.nc"
 
         if not input_file.exists():
             print(f"❌ Skipping {year}, input file not found: {input_file}")
@@ -45,24 +48,24 @@ def create_yearly_summary_netcdf(model: str, scenario: str, variant: str = "r1i1
         ds = xr.open_dataset(input_file)
 
         # Mask nodata values (-9999) by converting them to NaN
-        ds["flood_fraction"] = ds["flood_fraction"].where(ds["flood_fraction"] != nodata, np.nan)
+        ds[covariate] = ds[covariate].where(ds[covariate] != nodata, np.nan)
 
         # Sum over time, ignoring NaNs
         ds_yearly = ds.sum(dim="time", skipna=True)
 
-        # Rename variable from "flood_fraction" to "flood_fraction_sum"
-        ds_yearly = ds_yearly.rename({"flood_fraction": "flood_fraction_sum"})
+        # Rename variable from "fldfrc_weighted" to "fldfrc_weighted_sum"
+        ds_yearly = ds_yearly.rename({covariate: new_covariate})
 
         # Add a single time value corresponding to the mid-year timestamp
         ds_yearly = ds_yearly.expand_dims("time")  # Add time dimension
         ds_yearly["time"] = [np.datetime64(f"{year}-07-01")]  # Assign timestamp
 
         # Replace NaNs back with nodata (-9999)
-        ds_yearly["flood_fraction_sum"] = ds_yearly["flood_fraction_sum"].fillna(nodata)
+        ds_yearly[new_covariate] = ds_yearly[new_covariate].fillna(nodata)
 
         # Define encoding for compression
         encoding = {
-            "flood_fraction_sum": {"zlib": True, "complevel": 5, "dtype": "float32", "_FillValue": nodata},
+            new_covariate: {"zlib": True, "complevel": 5, "dtype": "float32", "_FillValue": nodata},
             "lon": {"dtype": "float32", "zlib": True, "complevel": 5},
             "lat": {"dtype": "float32", "zlib": True, "complevel": 5},
             "time": {"dtype": "int32", "units": "days since 1900-01-01", "zlib": True, "complevel": 5},  # Define time format
@@ -86,10 +89,10 @@ def stack_yearly_netcdf(model: str, scenario: str) -> None:
     """
     # Define paths
     input_dir = OUTPUT_ROOT / scenario / model
-    output_file = OUTPUT_ROOT / scenario / model / "stacked_flood_fraction_sum_std.nc"
+    output_file = OUTPUT_ROOT / scenario / model / f"stacked_{new_covariate}.nc"
 
     # Get all yearly NetCDF files
-    netcdf_files = sorted(input_dir.glob("flood_fraction_sum_std_*.nc"))  # Sorting ensures proper time order
+    netcdf_files = sorted(input_dir.glob(f"{new_covariate}_*.nc"))  # Sorting ensures proper time order
 
     if not netcdf_files:
         print(f"❌ No NetCDF files found for {model} - {scenario}")
@@ -132,7 +135,7 @@ def clean_up_yearly_netcdf_files(model: str, scenario: str) -> None:
     input_dir = OUTPUT_ROOT / scenario / model
 
     # Get all yearly NetCDF files
-    netcdf_files = input_dir.glob("flood_fraction_sum_*.nc")
+    netcdf_files = input_dir.glob(f"{new_covariate}_*.nc")
 
     for f in netcdf_files:
         f.unlink()

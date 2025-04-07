@@ -19,6 +19,7 @@ parser.add_argument("--year", type=str, required=True, help="year to process",)
 args = parser.parse_args()
 
 covariate = "flood_fraction"
+new_covariate = "fldfrc_weighted"
 OUTPUT_ROOT = Path("/mnt/team/rapidresponse/pub/flooding/output/fldfrc")
 
 
@@ -26,10 +27,10 @@ OUTPUT_ROOT = Path("/mnt/team/rapidresponse/pub/flooding/output/fldfrc")
 # and by pixels through days, finds the smallest non-negative value for each pixel (and skips is all pixels are negative or nan).
 # Then it subtracts that smallest value from all days for that pixel. Finally, it saves the standardized flooding fraction as a new NetCDF file.
 
-def standardize_flooding_fraction(model: str, scenario: str, variant: str, covariate: str, year: int):
+def standardize_flooding_fraction(model: str, scenario: str, variant: str, covariate: str, new_covariate: str, year: int):
     print(f"Standardizing flooding fraction for {model}, {scenario}, {variant}, {year}...")
     input_file = OUTPUT_ROOT / scenario / model / f"flood_fraction_{year}.nc"
-    output_file = OUTPUT_ROOT / scenario / model / f"flood_fraction_std_{year}.nc"
+    output_file = OUTPUT_ROOT / scenario / model / f"{new_covariate}_{year}.nc"
 
     if not input_file.exists():
         print(f"Input file {input_file} does not exist. Skipping...")
@@ -43,7 +44,8 @@ def standardize_flooding_fraction(model: str, scenario: str, variant: str, covar
     da[da < 0] = np.nan
     
     # Create a copy for standardization
-    da_std = da.copy()
+    da_weighted = da.copy()
+    # Change the name of the variable in da_weighted
     
     # Get dimensions
     days, height, width = da.shape
@@ -56,14 +58,20 @@ def standardize_flooding_fraction(model: str, scenario: str, variant: str, covar
             valid_values = pixel_values[~np.isnan(pixel_values)]
             if len(valid_values) > 0:
                 min_value = np.min(valid_values)
+                weight = 1 - min_value
                 # Subtract minimum from all days for this pixel
-                da_std[:, y, x] = da[:, y, x] - min_value
+                if weight > 0:
+                    da_weighted[:, y, x] = (da[:, y, x] - min_value) / weight
+                else:
+                    da_weighted[:, y, x] = 0
                 # Set negative values to zero
-                negative_mask = da_std[:, y, x] < 0
-                da_std[negative_mask, y, x] = 0
+                negative_mask = da_weighted[:, y, x] < 0
+                da_weighted[negative_mask, y, x] = 0
 
     # Save the standardized flooding fraction as a new NetCDF file
-    ds[covariate] = (('time', 'lat', 'lon'), da_std)
+    ds[covariate] = (('time', 'lat', 'lon'), da_weighted)
+    ds = ds.rename({covariate: new_covariate})  # Rename variable to "fldfrc_weighted"
+    ds.attrs["long_name"] = "Weighted flooding fraction"
 
     # Define compression and data type encoding
     encoding = {
@@ -74,11 +82,11 @@ def standardize_flooding_fraction(model: str, scenario: str, variant: str, covar
     }
     ds.to_netcdf(output_file, format="NETCDF4", engine="netcdf4", encoding=encoding)
     
-    print(f"Standardized flooding fraction saved to {output_file}")
+    print(f"Weighted flooding fraction saved to {output_file}")
 
     # Close the dataset to free up resources
     ds.close()
 
 if __name__ == "__main__":
     # Call the function with the parsed arguments
-    standardize_flooding_fraction(args.model, args.scenario, args.variant, covariate, args.year)
+    standardize_flooding_fraction(args.model, args.scenario, args.variant, covariate, new_covariate, args.year)

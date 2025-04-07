@@ -18,6 +18,8 @@ hierarchy = args.hierarchy
 scenario = args.scenario
 variant = args.variant
 
+measure = "fldfrc_weighted_sum"
+
 def create_mean_results(hierarchy: str, scenario: str, variant: str = "r1i1p1f1") -> None:
     root = Path("/mnt/team/rapidresponse/pub/flooding/results/output/") / hierarchy
     models = [
@@ -29,7 +31,7 @@ def create_mean_results(hierarchy: str, scenario: str, variant: str = "r1i1p1f1"
     df_list = []
 
     for model in models:
-        file_name = f"flood_fraction_sum_std_{scenario}_{model}_{variant}.parquet"
+        file_name = f"{measure}_{scenario}_{model}_{variant}.parquet"
         file_path = root / file_name
         if not file_path.exists():
             continue 
@@ -52,7 +54,7 @@ def create_mean_results(hierarchy: str, scenario: str, variant: str = "r1i1p1f1"
     }).reset_index()
 
     # Save the aggregated mean results
-    output_file = root / f"flood_fraction_sum_std_{scenario}_mean_{variant}.parquet"
+    output_file = root / f"{measure}_{scenario}_mean_{variant}.parquet"
     combined_df.to_parquet(output_file, index=False)
     # change file permissions to 775
     output_file.chmod(0o775)

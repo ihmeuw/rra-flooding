@@ -136,7 +136,7 @@ def hierarchy_main(
     model: str,
     variant: str = "r1i1p1f1",
 ) -> None:
-    measure = "flood_fraction_sum"
+    measure = "fldfrc_weighted_sum"
     root = Path("/mnt/team/rapidresponse/pub/flooding/results/output/")
 
     # Load hierarchy data for aggregation
@@ -155,7 +155,7 @@ def hierarchy_main(
     for draw in DRAWS:
         draw_results = []
         for block_key in block_keys:
-            draw_df = pd.read_parquet(root / "raw-results" / hierarchy / model / block_key / "flood_fraction_sum_std" / f"{draw}.parquet")
+            draw_df = pd.read_parquet(root / "raw-results" / hierarchy / model / block_key / measure / f"{draw}.parquet")
             # filter by scenario
             draw_df = draw_df[draw_df["scenario"] == scenario]
             # drop scenario and measure columns
@@ -210,7 +210,7 @@ def hierarchy_main(
         subset_results_path = (
             root / subset_hierarchy 
         )
-        filename = f"flood_fraction_sum_std_{scenario}_{model}_{variant}.parquet"
+        filename = f"{measure}_{scenario}_{model}_{variant}.parquet"
         mkdir(subset_results_path, parents=True, exist_ok=True)
         subset_results.to_parquet(
             subset_results_path / filename,
@@ -220,7 +220,7 @@ def hierarchy_main(
         final_path.chmod(0o775)
 
         save_population = (
-            measure == "flood_fraction_sum" and scenario == "ssp245" and draw == "000" and scenario == "ssp245"
+            measure == measure and scenario == "ssp245" and draw == "000" and scenario == "ssp245"
         )
         if save_population:
             subset_pop = pop_df[pop_df["location_id"].isin(subset_location_ids)]
