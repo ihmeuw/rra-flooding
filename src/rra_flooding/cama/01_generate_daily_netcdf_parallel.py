@@ -4,7 +4,8 @@ from jobmon.client.tool import Tool # type: ignore
 from pathlib import Path
 
 # Code directory
-CODE_DIR = Path("/repos/rra-flooding/src/rra_flooding/cama/")
+REPO_ROOT = Path.cwd()
+
 # Models, scenarios, and years
 MODELS = ["ACCESS-CM2", "EC-Earth3", "INM-CM5-0", "MIROC6", "IPSL-CM6A-LR", "NorESM2-MM", "GFDL-CM4", "MRI-ESM2-0"]
 SCENARIOS = ["historical", "ssp126", "ssp245", "ssp585"]
@@ -87,21 +88,22 @@ task_template = tool.get_task_template(
         "cores": 2,
         "runtime": "60m",
         "queue": "all.q",
-        "project": project,  # Ensure the project is set correctly
+        "project": project,
         "stdout": str(stdout_dir),
         "stderr": str(stderr_dir),
     },
-    command_template="python {CODE_DIR}/01_generate_daily_netcdf.py "
-                     "--model {model} "
-                     "--scenario {scenario} "
-                     "--start_year {start_year} "
-                     "--end_year {end_year} "
-                     "--variant {variant}",
-    node_args=["model", "scenario", "start_year", "end_year"],  # 👈 Include years in node_args
-    task_args=["variant"],  # Only variant is task-specific
+    command_template = (
+        "python {repo_root}/01_generate_daily_netcdf.py "
+        "--model {{model}} "
+        "--scenario {{scenario}} "
+        "--start_year {{start_year}} "
+        "--end_year {{end_year}} "
+        "--variant {{variant}}"
+    ).format(repo_root=REPO_ROOT),
+    node_args=["model", "scenario", "start_year", "end_year"],
+    task_args=["variant"],
     op_args=[],
 )
-
 
 # Add tasks
 tasks = []

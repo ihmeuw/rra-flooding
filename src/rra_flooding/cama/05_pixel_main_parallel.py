@@ -4,6 +4,9 @@ from jobmon.client.tool import Tool # type: ignore
 from pathlib import Path
 import geopandas as gpd # type: ignore
 
+# Code directory
+REPO_ROOT = Path.cwd()
+
 modeling_frame = gpd.read_parquet("/mnt/team/rapidresponse/pub/population-model/ihmepop_results/2025_03_22/modeling_frame.parquet")
 block_keys = modeling_frame["block_key"].unique()
 root = Path("/mnt/team/rapidresponse/pub/flooding/results/output/raw-results")
@@ -64,12 +67,14 @@ task_template = tool.get_task_template(
         "stdout": str(stdout_dir),
         "stderr": str(stderr_dir),
     },
-    command_template="python ~/repos/rra-flooding/src/rra_flooding/cama/05_pixel_main.py "
-                     "--hiearchy {hiearchy} "
-                     "--model {model} "
-                     "--block_key {block_key} ",
-    node_args=[ "hiearchy", "model", "block_key"],  # 👈 Include years in node_args
-    task_args=[],  # Only variation is task-specific
+    command_template=(
+        "python {repo_root}/05_pixel_main.py "
+        "--hiearchy {{hiearchy}} "
+        "--model {{model}} "
+        "--block_key {{block_key}} "
+    ).format(repo_root=REPO_ROOT),
+    node_args=[ "hiearchy", "model", "block_key"], 
+    task_args=[], # Only variation is task-specific
     op_args=[],
 )
 
