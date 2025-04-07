@@ -59,7 +59,7 @@ task_template = tool.get_task_template(
         "stdout": str(stdout_dir),
         "stderr": str(stderr_dir),
     },
-    command_template="python ~/repos/rra-flooding/src/rra_flooding/cama/stack_historical_ssp_scenarios.py "
+    command_template="python ~/repos/rra-flooding/src/rra_flooding/cama/04_stack_historical_ssp_scenarios.py "
                      "--model {model} "
                      "--scenario {scenario} ",
     node_args=["model", "scenario"],  # 👈 Include years in node_args

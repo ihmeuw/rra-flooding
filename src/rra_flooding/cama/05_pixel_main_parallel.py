@@ -2,12 +2,16 @@ import getpass
 import uuid
 from jobmon.client.tool import Tool # type: ignore
 from pathlib import Path
+import geopandas as gpd # type: ignore
 
-# Flood Fraction Directory
-BASE_PATH = Path('/mnt/team/rapidresponse/pub/flooding/output/fldfrc')
-# Models, scenarios
-MODELS = ["ACCESS-CM2", "EC-Earth3", "INM-CM5-0", "MIROC6", "IPSL-CM6A-LR", "NorESM2-MM", "GFDL-CM4", "MRI-ESM2-0"]
-SCENARIOS = ["historical", "ssp126", "ssp245", "ssp585"]
+modeling_frame = gpd.read_parquet("/mnt/team/rapidresponse/pub/population-model/ihmepop_results/2025_03_22/modeling_frame.parquet")
+block_keys = modeling_frame["block_key"].unique()
+root = Path("/mnt/team/rapidresponse/pub/flooding/results/output/raw-results")
+
+heirarchies = ["lsae_1209", "gbd_2021"]
+# heirarchies = ["lsae_1209"]
+models = ["ACCESS-CM2", "EC-Earth3", "INM-CM5-0", "MIROC6", "IPSL-CM6A-LR", "NorESM2-MM", "MRI-ESM2-0", "GFDL-CM4"]
+
 
 # Jobmon setup
 user = getpass.getuser()
@@ -23,24 +27,25 @@ stderr_dir.mkdir(parents=True, exist_ok=True)
 # Project
 project = "proj_lsae"  # Adjust this to your project name if needed
 
+
 wf_uuid = uuid.uuid4()
-tool = Tool(name="daily_netcdf_brick_adjustment")
+tool = Tool(name="flood_model")
 
 # Create a workflow
 workflow = tool.create_workflow(
-    name=f"yearly_brick_workflow_{wf_uuid}",
-    max_concurrently_running=500,  # Adjust based on system capacity
+    name=f"fld_pixel_workflow_{wf_uuid}",
+    max_concurrently_running=10000,  # Adjust based on system capacity
 )
 
 # Compute resources
 workflow.set_default_compute_resources_from_dict(
     cluster_name="slurm",
     dictionary={
-        "memory": "50G",
-        "cores": 2,
-        "runtime": "120m",
-        "queue": "all.q",
-        "project": project,  # Ensure the project is set correctly
+        "memory": "15G",
+        "cores": 1,
+        "runtime": "60m",
+        "queue": "long.q",
+        "project": project,
         "stdout": str(stdout_dir),
         "stderr": str(stderr_dir),
     }
@@ -48,42 +53,45 @@ workflow.set_default_compute_resources_from_dict(
 
 # Define the task template for processing each year batch
 task_template = tool.get_task_template(
-    template_name="yearly_brick_generation",
+    template_name="fld_pixel_generation",
     default_cluster_name="slurm",
     default_compute_resources={
-        "memory": "50G",
-        "cores": 2,
-        "runtime": "120m",
-        "queue": "all.q",
-        "project": project,  # Ensure the project is set correctly
+        "memory": "15G",
+        "cores": 1,
+        "runtime": "60m",
+        "queue": "long.q",
+        "project": project,
         "stdout": str(stdout_dir),
         "stderr": str(stderr_dir),
     },
-    command_template="python  ~/repos/rra-flooding/src/rra_flooding/cama/generate_yearly_sum_netcdf_bricks.py "
+    command_template="python ~/repos/rra-flooding/src/rra_flooding/cama/05_pixel_main.py "
+                     "--hiearchy {hiearchy} "
                      "--model {model} "
-                     "--scenario {scenario} "
-                     "--variant {variant}",
-    node_args=["model", "scenario"],  # 👈 Include years in node_args
-    task_args=["variant"],  # Only variant is task-specific
+                     "--block_key {block_key} ",
+    node_args=[ "hiearchy", "model", "block_key"],  # 👈 Include years in node_args
+    task_args=[],  # Only variation is task-specific
     op_args=[],
 )
 
-
-
 # Add tasks
 tasks = []
-for scenario in SCENARIOS:
-    for model in MODELS:
-        fldfrc_root = BASE_PATH / scenario / model
-        if not fldfrc_root.exists():
-            print(f"Skipping {fldfrc_root}: does not exist")
-            continue
-        task = task_template.create_task(
-            model=model,
-            scenario=scenario,
-            variant="r1i1p1f1",
-        )
-        tasks.append(task)
+
+for hiearchy in heirarchies:
+    for model in models:
+        for block_key in block_keys:
+            hier_model_block_file = root / hiearchy / model / block_key / "flood_fraction_sum_std" / "000.parquet"
+            if hier_model_block_file.exists():
+                continue
+            tasks.append(
+                task_template.create_task(
+                    hiearchy=hiearchy,
+                    model=model,
+                    block_key=block_key,
+                )
+            )
+
+
+
 
 print(f"Number of tasks: {len(tasks)}")
 

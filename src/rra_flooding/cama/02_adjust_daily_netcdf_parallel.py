@@ -61,7 +61,7 @@ task_template = tool.get_task_template(
         "stdout": str(stdout_dir),
         "stderr": str(stderr_dir),
     },
-    command_template="python ~/repos/rra-flooding/src/rra_flooding/cama/adjust_daily_netcdf.py "
+    command_template="python ~/repos/rra-flooding/src/rra_flooding/cama/02_adjust_daily_netcdf.py "
                      "--model {model} "
                      "--scenario {scenario} "
                      "--variant {variant} "

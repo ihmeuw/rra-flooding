@@ -320,9 +320,9 @@ def pixel_main(
 
     result_records = []
     for measure, scenario,  in itertools.product(measures, scenarios):
-        root = Path("/mnt/team/rapidresponse/pub/flooding/results/annual/raw") / scenario / "flood_fraction_sum"
+        root = Path("/mnt/team/rapidresponse/pub/flooding/results/annual/raw") / scenario / "flood_fraction_sum_std"
         # check if model exists, if not, skip
-        if not (root / f"{model}.nc").exists():
+        if not (root / f"{model}_std.nc").exists():
             continue
 
         ds_file = root / f"{model}.nc"
@@ -374,7 +374,7 @@ def pixel_main(
         ],
     ).sort_values(by=["location_id", "year_id"])
     save_root = Path("/mnt/team/rapidresponse/pub/flooding/results/output/raw-results")
-    save_path = save_root / hiearchy / model/ block_key / "flood_fraction_sum" 
+    save_path = save_root / hiearchy / model/ block_key / "flood_fraction_sum_std" 
     mkdir(save_path, parents=True, exist_ok=True)
     filename = "000.parquet"
     results.to_parquet(

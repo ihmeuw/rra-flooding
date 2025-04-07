@@ -91,7 +91,7 @@ task_template = tool.get_task_template(
         "stdout": str(stdout_dir),
         "stderr": str(stderr_dir),
     },
-    command_template="python {CODE_DIR}/generate_daily_netcdf.py "
+    command_template="python {CODE_DIR}/01_generate_daily_netcdf.py "
                      "--model {model} "
                      "--scenario {scenario} "
                      "--start_year {start_year} "
