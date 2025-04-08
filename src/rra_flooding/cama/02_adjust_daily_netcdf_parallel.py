@@ -76,7 +76,6 @@ task_template = tool.get_task_template(
 )
 
 
-
 # Add tasks
 tasks = []
 for scenario in SCENARIOS:

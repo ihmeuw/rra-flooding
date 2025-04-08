@@ -4,6 +4,9 @@ from jobmon.client.tool import Tool  # type: ignore
 from pathlib import Path
 import geopandas as gpd  # type: ignore
 
+# Code directory
+REPO_ROOT = Path.cwd()
+
 modeling_frame = gpd.read_parquet("/mnt/team/rapidresponse/pub/population-model/ihmepop_results/2025_03_22/modeling_frame.parquet")
 block_keys = modeling_frame["block_key"].unique()
 root = Path("/mnt/team/rapidresponse/pub/flooding/results/output/raw-results")
@@ -66,11 +69,13 @@ task_template = tool.get_task_template(
         "stdout": str(stdout_dir),
         "stderr": str(stderr_dir),
     },
-    command_template="python ~/repos/rra-flooding/src/rra_flooding/cama/06a_pixel_hierarchy.py "
-                     "--hierarchy {hierarchy} "
-                     "--scenario {scenario} "
-                     "--model {model} "
-                     "--variant {variant} ",
+    command_template=(
+        "python {repo_root}/06a_pixel_hierarchy.py "
+        "--hierarchy {{hierarchy}} "
+        "--scenario {{scenario}} "
+        "--model {{model}} "
+        "--variant {{variant}} "
+    ).format(repo_root=REPO_ROOT),
     node_args=["hierarchy", "scenario", "model", "variant"],
     task_args=[],
     op_args=[],
@@ -89,10 +94,12 @@ aggregate_task_template = tool.get_task_template(
         "stdout": str(stdout_dir),
         "stderr": str(stderr_dir),
     },
-    command_template="python ~/repos/rra-flooding/src/rra_flooding/cama/06b_pixel_mean_generation.py "
-                     "--hierarchy {hierarchy} "
-                     "--scenario {scenario} "
-                     "--variant {variant} ",
+    command_template=(
+        "python {repo_root}/06b_pixel_mean_generation.py "
+        "--hierarchy {{hierarchy}} "
+        "--scenario {{scenario}} "
+        "--variant {{variant}} "
+    ).format(repo_root=REPO_ROOT),
     node_args=["hierarchy", "scenario", "variant"],
     task_args=[],
     op_args=[],

@@ -89,7 +89,7 @@ task_template = tool.get_task_template(
         "cores": 2,
         "runtime": "60m",
         "queue": "all.q",
-        "project": project,  # Ensure the project is set correctly
+        "project": project,
         "stdout": str(stdout_dir),
         "stderr": str(stderr_dir),
     },
@@ -105,7 +105,6 @@ task_template = tool.get_task_template(
     task_args=["variant"],  # Only variant is task-specific
     op_args=[],
 )
-
 
 # Add tasks
 tasks = []
