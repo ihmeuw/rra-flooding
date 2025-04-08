@@ -14,16 +14,21 @@ models = ["ACCESS-CM2", "EC-Earth3", "INM-CM5-0", "MIROC6", "IPSL-CM6A-LR", "Nor
 scenarios = ["ssp126", "ssp245", "ssp585"]
 variants = ["r1i1p1f1"]
 
+
+# Jobmon setup
 user = getpass.getuser()
-# log_dir = Path(f"/mnt/share/scratch/users/{user}/flood/")
-log_dir = Path(f"/mnt/share/homes/users/{user}/flood/")
+
+log_dir = Path(f"/mnt/share/homes/{user}/flood/")
 log_dir.mkdir(parents=True, exist_ok=True)
 # Create directories for stdout and stderr
 stdout_dir = log_dir / "stdout"
 stderr_dir = log_dir / "stderr"
 stdout_dir.mkdir(parents=True, exist_ok=True)
 stderr_dir.mkdir(parents=True, exist_ok=True)
-# Jobmon setup
+
+# Project
+project = "proj_lsae"  # Adjust this to your project name if needed
+
 
 wf_uuid = uuid.uuid4()
 tool = Tool(name="flood_model")
@@ -42,7 +47,7 @@ workflow.set_default_compute_resources_from_dict(
         "cores": 1,
         "runtime": "60m",
         "queue": "all.q",
-        "project": "proj_rapidresponse",
+        "project": project,
         "stdout": str(stdout_dir),
         "stderr": str(stderr_dir),
     }
@@ -53,13 +58,13 @@ task_template = tool.get_task_template(
     template_name="hierarchy_generation",
     default_cluster_name="slurm",
     default_compute_resources={
-        "queue": "all.q",
-        "cores": 1,
         "memory": "50G",
+        "cores": 1,
         "runtime": "60m",
+        "queue": "all.q",
+        "project": project,
         "stdout": str(stdout_dir),
         "stderr": str(stderr_dir),
-        "project": "proj_rapidresponse",
     },
     command_template="python ~/repos/rra-flooding/src/rra_flooding/cama/06a_pixel_hierarchy.py "
                      "--hierarchy {hierarchy} "
@@ -76,13 +81,13 @@ aggregate_task_template = tool.get_task_template(
     template_name="hierarchy_aggregation",
     default_cluster_name="slurm",
     default_compute_resources={
-        "queue": "all.q",
-        "cores": 1,
         "memory": "50G",
-        "runtime": "120m", 
+        "cores": 1,
+        "runtime": "120m",
+        "queue": "all.q",
+        "project": project,
         "stdout": str(stdout_dir),
         "stderr": str(stderr_dir),
-        "project": "proj_rapidresponse",
     },
     command_template="python ~/repos/rra-flooding/src/rra_flooding/cama/06b_pixel_mean_generation.py "
                      "--hierarchy {hierarchy} "

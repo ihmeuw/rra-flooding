@@ -3,6 +3,10 @@ import uuid
 from jobmon.client.tool import Tool # type: ignore
 from pathlib import Path
 
+# Script directory
+REPO_ROOT = Path.cwd()
+SCRIPT_DIR = REPO_ROOT / "src" / "rra_flooding" / "cama"
+
 # Flood Fraction Directory
 BASE_PATH = Path('/mnt/team/rapidresponse/pub/flooding/output/fldfrc')
 # Models, scenarios
@@ -59,11 +63,13 @@ task_template = tool.get_task_template(
         "stdout": str(stdout_dir),
         "stderr": str(stderr_dir),
     },
-    command_template="python  ~/repos/rra-flooding/src/rra_flooding/cama/03_generate_yearly_sum_netcdf_bricks.py "
-                     "--model {model} "
-                     "--scenario {scenario} "
-                     "--variant {variant}",
-    node_args=["model", "scenario"],  # 👈 Include years in node_args
+    command_template=(
+        "python  {SCRIPT_DIR}/03_generate_yearly_sum_netcdf_bricks.py "
+        "--model {{model}} "
+        "--scenario {{scenario}} "
+        "--variant {{variant}}"
+    ).format(repo_root=REPO_ROOT),
+    node_args=["model", "scenario"], 
     task_args=["variant"],  # Only variant is task-specific
     op_args=[],
 )

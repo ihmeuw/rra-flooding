@@ -11,6 +11,7 @@ root = Path("/mnt/team/rapidresponse/pub/flooding/results/output/raw-results")
 heirarchies = ["lsae_1209", "gbd_2021"]
 # heirarchies = ["lsae_1209"]
 models = ["ACCESS-CM2", "EC-Earth3", "INM-CM5-0", "MIROC6", "IPSL-CM6A-LR", "NorESM2-MM", "MRI-ESM2-0", "GFDL-CM4"]
+OUTCOME = "fldfrc_weighted_sum"  # The variable to be stacked
 
 
 # Jobmon setup
@@ -44,7 +45,7 @@ workflow.set_default_compute_resources_from_dict(
         "memory": "15G",
         "cores": 1,
         "runtime": "60m",
-        "queue": "long.q",
+        "queue": "all.q",
         "project": project,
         "stdout": str(stdout_dir),
         "stderr": str(stderr_dir),
@@ -59,7 +60,7 @@ task_template = tool.get_task_template(
         "memory": "15G",
         "cores": 1,
         "runtime": "60m",
-        "queue": "long.q",
+        "queue": "all.q",
         "project": project,
         "stdout": str(stdout_dir),
         "stderr": str(stderr_dir),
@@ -79,9 +80,9 @@ tasks = []
 for hiearchy in heirarchies:
     for model in models:
         for block_key in block_keys:
-            hier_model_block_file = root / hiearchy / model / block_key / "flood_fraction_sum_std" / "000.parquet"
-            if hier_model_block_file.exists():
-                continue
+            # hier_model_block_file = root / hiearchy / model / block_key / "flood_fraction_sum_std" / "000.parquet"
+            # if hier_model_block_file.exists():
+            #     continue
             tasks.append(
                 task_template.create_task(
                     hiearchy=hiearchy,
@@ -89,6 +90,8 @@ for hiearchy in heirarchies:
                     block_key=block_key,
                 )
             )
+            print(f"Task created for {hiearchy}, {model}, {block_key}")
+            # Add task to the workflow
 
 
 

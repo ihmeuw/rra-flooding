@@ -75,7 +75,7 @@ def standardize_flooding_fraction(model: str, scenario: str, variant: str, covar
 
     # Define compression and data type encoding
     encoding = {
-        covariate: {"zlib": True, "complevel": 5, "dtype": "float32"},  # Apply compression to data variable
+        new_covariate: {"zlib": True, "complevel": 5, "dtype": "float32"},  # Apply compression to data variable
         "lon": {"dtype": "float32", "zlib": True, "complevel": 5},  # Compress longitude
         "lat": {"dtype": "float32", "zlib": True, "complevel": 5},  # Compress latitude
         "time": {"dtype": "int32", "zlib": True, "complevel": 5, "units": f"days since {year}-01-01"}  # Compress time

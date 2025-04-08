@@ -30,6 +30,8 @@ hiearchy = args.hiearchy
 block_key = args.block_key
 model = args.model
 
+OUTCOME = "fldfrc_weighted_sum"  # The variable to be stacked
+
 # Climate measures to calculate
 AGGREGATION_MEASURES = [
     # Temperature metrics
@@ -45,7 +47,7 @@ AGGREGATION_MEASURES = [
     "relative_humidity",  # Average relative humidity
     "total_precipitation",  # Total precipitation
     "precipitation_days",  # Number of days with precipitation
-    "flood_fraction_sum",  # Total flood fraction
+    OUTCOME,  # Total flood fraction
 ]
 
 class _Scenarios(NamedTuple):
@@ -312,8 +314,7 @@ def pixel_main(
         model: str,
 ):
     years = list(range(1970, 2101))
-
-    measures = ["fldfrc_weighted_sum"]
+    measures = [OUTCOME]
     scenarios = ["ssp126", "ssp245", "ssp585"]
     
 
@@ -321,7 +322,7 @@ def pixel_main(
 
     result_records = []
     for measure, scenario,  in itertools.product(measures, scenarios):
-        root = Path("/mnt/team/rapidresponse/pub/flooding/results/annual/raw") / scenario / measure
+        root = Path("/mnt/team/rapidresponse/pub/flooding/results/annual/raw") / scenario / OUTCOME
         # check if model exists, if not, skip
         if not (root / f"{model}.nc").exists():
             continue
@@ -329,7 +330,7 @@ def pixel_main(
         ds_file = root / f"{model}.nc"
         ds = xr.open_dataset(ds_file)
         # rename lat/lon to latitude/longitude
-        ds = ds.rename({"lat": "latitude", "lon": "longitude", "time": "year", measure: "value"})
+        ds = ds.rename({"lat": "latitude", "lon": "longitude", "time": "year", OUTCOME: "value"})
         ds = ds.sel(**climate_slice)  # type: ignore[arg-type]
         for year in years:
             # Load population data and grab the underlying ndarray (we don't want the metadata)
@@ -375,7 +376,7 @@ def pixel_main(
         ],
     ).sort_values(by=["location_id", "year_id"])
     save_root = Path("/mnt/team/rapidresponse/pub/flooding/results/output/raw-results")
-    save_path = save_root / hiearchy / model/ block_key / measure 
+    save_path = save_root / hiearchy / model/ block_key / OUTCOME
     mkdir(save_path, parents=True, exist_ok=True)
     filename = "000.parquet"
     results.to_parquet(

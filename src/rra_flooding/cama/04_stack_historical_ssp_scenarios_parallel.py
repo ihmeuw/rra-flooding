@@ -3,6 +3,10 @@ import uuid
 from jobmon.client.tool import Tool # type: ignore
 from pathlib import Path
 
+# Script directory
+REPO_ROOT = Path.cwd()
+SCRIPT_DIR = REPO_ROOT / "src" / "rra_flooding" / "cama"
+
 # Flood Fraction Directory
 BASE_PATH = Path('/mnt/team/rapidresponse/pub/flooding/output/fldfrc')
 # Models, scenarios
@@ -53,15 +57,17 @@ task_template = tool.get_task_template(
     default_compute_resources={
         "memory": "50G",
         "cores": 2,
-        "runtime": "120m",
+        "runtime": "10m",
         "queue": "all.q",
         "project": project,  # Ensure the project is set correctly
         "stdout": str(stdout_dir),
         "stderr": str(stderr_dir),
     },
-    command_template="python ~/repos/rra-flooding/src/rra_flooding/cama/04_stack_historical_ssp_scenarios.py "
-                     "--model {model} "
-                     "--scenario {scenario} ",
+    command_template=(
+        "python {script_dir}/04_stack_historical_ssp_scenarios.py "
+        "--model {{model}} "
+        "--scenario {{scenario}}"
+    ).format(script_dir=SCRIPT_DIR),
     node_args=["model", "scenario"],  # 👈 Include years in node_args
     task_args=[],  # Only variation is task-specific
     op_args=[],

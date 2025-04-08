@@ -57,8 +57,25 @@ def aggregate_climate_to_hierarchy(
         level_mask = hierarchy.level == level
         parent_map = hierarchy.loc[level_mask].set_index("location_id").parent_id
 
-        subset = results.loc[parent_map.index]
-        subset["parent_id"] = parent_map
+        # For every location in the parent map, we need to check if it is the results
+        # For those that are, proceed to aggregate
+        # For those that aren't, check to make sure their parent is in the results. If not, exit with an error
+        absent_parent_map = parent_map.index.difference(results.index)
+        if len(absent_parent_map) > 0:
+            msg = f"Some parent locations are not in the results: {absent_parent_map}"
+            # Check to see if the parent of each location id that is missing is in the results
+            parent_of_absent = parent_map.loc[absent_parent_map]
+            unique_parent_ids = parent_of_absent.unique()
+            # Check to see if the unique_parent_ids are in the results
+            missing_parents = unique_parent_ids[~np.isin(unique_parent_ids, results.index)]
+            if len(missing_parents) > 0:
+                msg = f"Some parent locations are not in the results: {missing_parents}"
+                raise ValueError(msg)
+        
+        present_parent_map = parent_map.loc[parent_map.index.isin(results.index)]
+        # Continue aggregation only on the present locations
+        subset = results.loc[present_parent_map.index]
+        subset["parent_id"] = present_parent_map
 
         parent_values = (
             subset.groupby(["year_id", "parent_id"])[["weighted_climate", "population"]]
@@ -136,7 +153,7 @@ def hierarchy_main(
     model: str,
     variant: str = "r1i1p1f1",
 ) -> None:
-    measure = "fldfrc_weighted_sum"
+    measure = "fldfrc_weighted_sum" 
     root = Path("/mnt/team/rapidresponse/pub/flooding/results/output/")
 
     # Load hierarchy data for aggregation
@@ -155,7 +172,7 @@ def hierarchy_main(
     for draw in DRAWS:
         draw_results = []
         for block_key in block_keys:
-            draw_df = pd.read_parquet(root / "raw-results" / hierarchy / model / block_key / measure / f"{draw}.parquet")
+            draw_df = pd.read_parquet(root / "raw-results" / hierarchy / model / block_key / "fldfrc_weighted_sum" / f"{draw}.parquet") # change to fldfrc_weighted_sum
             # filter by scenario
             draw_df = draw_df[draw_df["scenario"] == scenario]
             # drop scenario and measure columns
@@ -210,7 +227,7 @@ def hierarchy_main(
         subset_results_path = (
             root / subset_hierarchy 
         )
-        filename = f"{measure}_{scenario}_{model}_{variant}.parquet"
+        filename = f"fldfrc_weighted_sum_{scenario}_{model}_{variant}.parquet" # change to fldfrc_weighted_sum
         mkdir(subset_results_path, parents=True, exist_ok=True)
         subset_results.to_parquet(
             subset_results_path / filename,
@@ -220,7 +237,7 @@ def hierarchy_main(
         final_path.chmod(0o775)
 
         save_population = (
-            measure == measure and scenario == "ssp245" and draw == "000" and scenario == "ssp245"
+            measure == "fldfrc_weighted_sum" and scenario == "ssp245" and draw == "000" and scenario == "ssp245" # change to fldfrc_weighted_sum
         )
         if save_population:
             subset_pop = pop_df[pop_df["location_id"].isin(subset_location_ids)]
@@ -231,7 +248,7 @@ def hierarchy_main(
             )
             # change file permssions to 0775
             pop_path = subset_results_path / popname
-            pop_path.chmod(0o775)
+            # pop_path.chmod(0o775)
 
 
 # Call the function with parsed arguments

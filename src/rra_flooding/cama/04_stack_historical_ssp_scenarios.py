@@ -25,7 +25,7 @@ def stack_historical_with_ssp(model: str) -> None:
     """
     Stacks the historical NetCDF brick with each SSP scenario NetCDF brick for a given model.
     """
-    historical_path = INPUT_ROOT / "historical" / model / "stacked_{OUTCOME}.nc"
+    historical_path = INPUT_ROOT / "historical" / model / f"stacked_{OUTCOME}.nc"
 
     # Check if historical file exists
     if not historical_path.exists():
@@ -61,7 +61,7 @@ def stack_historical_with_ssp(model: str) -> None:
 
         # Define encoding for compression
         encoding = {
-            "OUTCOME": {"zlib": True, "complevel": 5, "dtype": "float32"},
+            OUTCOME: {"zlib": True, "complevel": 5, "dtype": "float32"},
             "lon": {"dtype": "float32", "zlib": True, "complevel": 5},
             "lat": {"dtype": "float32", "zlib": True, "complevel": 5},
             "time": {"dtype": "int32", "zlib": True, "complevel": 5}
