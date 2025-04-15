@@ -6,7 +6,9 @@ from pathlib import Path
 # Script directory
 SCRIPT_ROOT = Path.cwd()
 
-# Models, scenarios, and years
+# Variables, models, scenarios, and years
+VARIABLES = ["rivout","fldfrc","fldare","flddph"]
+
 MODELS = ["ACCESS-CM2", "EC-Earth3", "INM-CM5-0", "MIROC6", "IPSL-CM6A-LR", "NorESM2-MM", "GFDL-CM4", "MRI-ESM2-0"]
 SCENARIOS = ["historical", "ssp126", "ssp245", "ssp585"]
 # Batch of 5 years    
