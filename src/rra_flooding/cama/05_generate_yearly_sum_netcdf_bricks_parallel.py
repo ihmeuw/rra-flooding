@@ -4,8 +4,7 @@ from jobmon.client.tool import Tool # type: ignore
 from pathlib import Path
 
 # Script directory
-REPO_ROOT = Path.cwd()
-SCRIPT_DIR = REPO_ROOT / "src" / "rra_flooding" / "cama"
+SCRIPT_ROOT = Path.cwd()
 
 # Flood Fraction Directory
 BASE_PATH = Path('/mnt/team/rapidresponse/pub/flooding/output/fldfrc')
@@ -64,11 +63,11 @@ task_template = tool.get_task_template(
         "stderr": str(stderr_dir),
     },
     command_template=(
-        "python  {SCRIPT_DIR}/03_generate_yearly_sum_netcdf_bricks.py "
+        "python  {script_root}/generate_yearly_sum_netcdf_bricks.py "
         "--model {{model}} "
         "--scenario {{scenario}} "
         "--variant {{variant}}"
-    ).format(repo_root=REPO_ROOT),
+    ).format(script_root=SCRIPT_ROOT),
     node_args=["model", "scenario"], 
     task_args=["variant"],  # Only variant is task-specific
     op_args=[],

@@ -186,22 +186,21 @@ def convert_to_little_endian_and_save(ds: np.ndarray, runoff_dir: str|Path, time
     os.chmod(output_file_path, 0o775)
     return
     
-def extract_daily_data(ds: xr.Dataset, process_data: bool, runoff_dir: str|Path = None) -> int:
+def extract_daily_data(ds: xr.Dataset, runoff_dir: str|Path = None) -> int:
     """
     Extract a specific time step from the dataset, converts time coordinates and returns a year, month, day string.
     """
     day_counter = 0
     for i in range(len(ds.time)):
-        if process_data:
-            # Create a daily dataset
-            ds_time_step = ds.isel(time=i)
-            # Extract the time step
-            time_step_values = ds_time_step.time.values.tolist()
-            time_step = pd.Timestamp(time_step_values.year, time_step_values.month, time_step_values.day)
-            # Convert xarray dataset to numpy array
-            ds_time_step = ds_time_step.to_array().squeeze().data
+        # Create a daily dataset
+        ds_time_step = ds.isel(time=i)
+        # Extract the time step
+        time_step_values = ds_time_step.time.values.tolist()
+        time_step = pd.Timestamp(time_step_values.year, time_step_values.month, time_step_values.day)
+        # Convert xarray dataset to numpy array
+        ds_time_step = ds_time_step.to_array().squeeze().data
 
-            convert_to_little_endian_and_save(ds_time_step, runoff_dir, time_step)
+        convert_to_little_endian_and_save(ds_time_step, runoff_dir, time_step)
         day_counter += 1
     
     return day_counter
@@ -296,46 +295,46 @@ def make_directories(model: str, scenario: str, start_year: int, end_year: int, 
 
     return [batch_dir, runoff_dir]
 
-def standardize_model(model: str, scenario: str, start_year: int, end_year: int, process_data: bool, variant: str = "r1i1p1f1") -> None:
+def standardize_model(model: str, scenario: str, start_year: int, end_year: int, variant: str = "r1i1p1f1") -> None:
     """
     Run the flooding model standardization process for multiple years.
     """
-    if process_data:
-        # root = Path("/mnt/team/rapidresponse/pub/flooding/CaMa-Flood/cmf_v420_pkg/inp/")
-        batch_dir, runoff_dir = make_directories(model, scenario, start_year, end_year, variant)
+
+    # root = Path("/mnt/team/rapidresponse/pub/flooding/CaMa-Flood/cmf_v420_pkg/inp/")
+    batch_dir, runoff_dir = make_directories(model, scenario, start_year, end_year, variant)
+    
+
+    # Generate a list of years from start_year to end_year
+    years = list(range(start_year, end_year + 1))
+
+    total_days = 0
+    for year in years:
+        try:
+            print(f"Processing {model}, {scenario}, {year}")
+            # Only process the data if we have to
         
+            # Step 1a: Read in raster file and determine how many years are present.
+            mrro_year = read_and_preprocess_raster(model, scenario, year)
+            # Step 2: Convert the mrro variable to mm/day.
+            mrro_year = rescale_mrro_to_mm_day(mrro_year)
+            # Step 3: Standardize the time coordinate to Gregorian and check for leap years.
+            mrro_year = standardize_to_gregorian(mrro_year)
+            mrro_year = check_leap_year_and_impute(mrro_year, year)
+            # Step 4: Interpolate to a 1-degree grid and center align the longitude.
+            mrro_year = center_align_longitude(mrro_year)
+            mrro_year = interpolate_to_1_degree_grid(mrro_year)
+        
+            # Step 5: Extract a single time step and save the binary file.
+            day_counter = extract_daily_data(mrro_year, process_data, runoff_dir)
+            # Count total days processed
+            total_days += day_counter
 
-        # Generate a list of years from start_year to end_year
-        years = list(range(start_year, end_year + 1))
+        except Exception as e:
+            print(f"❌ Error processing {model}, {scenario}, {year}: {e}")
+            continue  # Skips the failed year and moves to the next
 
-        total_days = 0
-        for year in years:
-            try:
-                print(f"Processing {model}, {scenario}, {year}")
-                # Only process the data if we have to
-            
-                # Step 1a: Read in raster file and determine how many years are present.
-                mrro_year = read_and_preprocess_raster(model, scenario, year)
-                # Step 2: Convert the mrro variable to mm/day.
-                mrro_year = rescale_mrro_to_mm_day(mrro_year)
-                # Step 3: Standardize the time coordinate to Gregorian and check for leap years.
-                mrro_year = standardize_to_gregorian(mrro_year)
-                mrro_year = check_leap_year_and_impute(mrro_year, year)
-                # Step 4: Interpolate to a 1-degree grid and center align the longitude.
-                mrro_year = center_align_longitude(mrro_year)
-                mrro_year = interpolate_to_1_degree_grid(mrro_year)
-            
-                # Step 5: Extract a single time step and save the binary file.
-                day_counter = extract_daily_data(mrro_year, process_data, runoff_dir)
-                # Count total days processed
-                total_days += day_counter
-
-            except Exception as e:
-                print(f"❌ Error processing {model}, {scenario}, {year}: {e}")
-                continue  # Skips the failed year and moves to the next
-
-        # Create the ctl file
-        create_ctl_script(batch_dir, start_year, total_days)
+    # Create the ctl file
+    create_ctl_script(batch_dir, start_year, total_days)
 
     # Create the gosh script
     create_gosh_script(model, scenario, start_year, end_year, variant)
@@ -352,8 +351,7 @@ standardize_model(
     scenario=args.scenario,
     start_year=args.start_year,
     end_year=args.end_year,
-    variant=args.variant,
-    process_data=False
+    variant=args.variant
 )
 
 

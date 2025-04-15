@@ -4,8 +4,7 @@ from jobmon.client.tool import Tool # type: ignore
 from pathlib import Path
 
 # Script directory
-REPO_ROOT = Path.cwd()
-SCRIPT_DIR = REPO_ROOT / "src" / "rra_flooding" / "cama"
+SCRIPT_ROOT = Path.cwd()
 
 # Models, scenarios, and years
 MODELS = ["ACCESS-CM2", "EC-Earth3", "INM-CM5-0", "MIROC6", "IPSL-CM6A-LR", "NorESM2-MM", "GFDL-CM4", "MRI-ESM2-0"]
@@ -94,13 +93,13 @@ task_template = tool.get_task_template(
         "stderr": str(stderr_dir),
     },
     command_template=(
-        "python {SCRIPT_DIR}/generate_daily_netcdf.py "
+        "python {script_root}/generate_daily_netcdf.py "
         "--model {{model}} "
         "--scenario {{scenario}} "
         "--start_year {{start_year}} "
         "--end_year {{end_year}} "
         "--variant {{variant}}"
-    ).format(repo_root=REPO_ROOT),
+    ).format(script_root=SCRIPT_ROOT),
     node_args=["model", "scenario", "start_year", "end_year"],  # 👈 Include years in node_args
     task_args=["variant"],  # Only variant is task-specific
     op_args=[],

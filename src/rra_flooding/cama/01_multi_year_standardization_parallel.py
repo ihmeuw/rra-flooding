@@ -104,13 +104,13 @@ task_template = tool.get_task_template(
         "stderr": str(stderr_dir),
     },
     command_template=(
-        "python {SCRIPT_ROOT}/multi_year_standardization.py "
+        "python {script_root}/multi_year_standardization.py "
         "--model {{model}} "
         "--scenario {{scenario}} "
         "--start_year {{start_year}} "
         "--end_year {{end_year}} "
         "--variant {{variant}}"
-    ).format(SCRIPT_ROOT=SCRIPT_ROOT),
+    ).format(script_root=SCRIPT_ROOT),
     node_args=["model", "scenario", "start_year", "end_year"],  # 👈 Include years in node_args
     task_args=["variant"],  # Only variant is task-specific
     op_args=[],
