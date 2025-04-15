@@ -6,11 +6,15 @@ from pathlib import Path
 # Script directory
 SCRIPT_ROOT = Path.cwd()
 
-# Flood Fraction Directory
-BASE_PATH = Path('/mnt/team/rapidresponse/pub/flooding/output/fldfrc')
-# Models, scenarios
+BASE_PATH = Path('/mnt/team/rapidresponse/pub/flooding/output/')
 MODELS = ["ACCESS-CM2", "EC-Earth3", "INM-CM5-0", "MIROC6", "IPSL-CM6A-LR", "NorESM2-MM", "GFDL-CM4", "MRI-ESM2-0"]
 SCENARIOS = ["historical", "ssp126", "ssp245", "ssp585"]
+VARIABLE_DICT = {
+    "rivout": ["rivout_weighted", "max", 0],
+    "fldfrc": ["fldfrc_weighted", "sum", 0],
+    "fldare": ["fldare_weighted", "mean", 0],
+    "flddph": ["flddph_weighted", "count_over_threshold", 1.0]
+}
 
 # Jobmon setup
 user = getpass.getuser()
@@ -63,32 +67,37 @@ task_template = tool.get_task_template(
         "stderr": str(stderr_dir),
     },
     command_template=(
-        "python  {script_root}/generate_yearly_sum_netcdf_bricks.py "
+        "python  {script_root}/generate_yearly_summary_netcdf_bricks.py "
+        "--variable {{variable}} "
         "--model {{model}} "
         "--scenario {{scenario}} "
+        "--summary statistic {{summary_statistic}} "
+        "--threshold {{threshold}} "
         "--variant {{variant}}"
     ).format(script_root=SCRIPT_ROOT),
-    node_args=["model", "scenario"], 
-    task_args=["variant"],  # Only variant is task-specific
+    node_args=["variable", "model", "scenario", "summary_statistic"], 
+    task_args=["threshold", "variant"],  
     op_args=[],
 )
 
-
-
 # Add tasks
 tasks = []
-for scenario in SCENARIOS:
-    for model in MODELS:
-        fldfrc_root = BASE_PATH / scenario / model
-        if not fldfrc_root.exists():
-            print(f"Skipping {fldfrc_root}: does not exist")
-            continue
-        task = task_template.create_task(
-            model=model,
-            scenario=scenario,
-            variant="r1i1p1f1",
-        )
-        tasks.append(task)
+for variable in VARIABLE_DICT.keys():
+    new_covariate, summary_statistic, threshold = VARIABLE_DICT[variable]
+    for scenario in SCENARIOS:
+        for model in MODELS:
+            base_root = BASE_PATH / variable / scenario / model
+            if not base_root.exists():
+                continue
+            task = task_template.create_task(
+                model=model,
+                scenario=scenario,
+                variable=new_covariate,
+                summary_statistic=summary_statistic,
+                threshold=threshold,
+                variant="r1i1p1f1",
+            )
+            tasks.append(task)
 
 print(f"Number of tasks: {len(tasks)}")
 
