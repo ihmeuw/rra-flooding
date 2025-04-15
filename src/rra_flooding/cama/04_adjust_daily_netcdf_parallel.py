@@ -64,7 +64,7 @@ task_template = tool.get_task_template(
         "stderr": str(stderr_dir),
     },
     command_template=(
-        "python {SCRIPT_DIR}/02_adjust_daily_netcdf.py "
+        "python {SCRIPT_DIR}/adjust_daily_netcdf.py "
         "--model {{model}} "
         "--scenario {{scenario}} "
           "--variant {{variant}} "

@@ -5,7 +5,7 @@ from pathlib import Path
 import geopandas as gpd  # type: ignore
 
 # Code directory
-REPO_ROOT = Path.cwd()
+SCRIPT_ROOT = Path.cwd()
 
 modeling_frame = gpd.read_parquet("/mnt/team/rapidresponse/pub/population-model/ihmepop_results/2025_03_22/modeling_frame.parquet")
 block_keys = modeling_frame["block_key"].unique()
@@ -75,7 +75,7 @@ task_template = tool.get_task_template(
         "--scenario {{scenario}} "
         "--model {{model}} "
         "--variant {{variant}} "
-    ).format(repo_root=REPO_ROOT),
+    ).format(repo_root=SCRIPT_ROOT),
     node_args=["hierarchy", "scenario", "model", "variant"],
     task_args=[],
     op_args=[],
