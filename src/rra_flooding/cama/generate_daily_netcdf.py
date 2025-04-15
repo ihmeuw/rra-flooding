@@ -41,7 +41,7 @@ def create_netcdf_file(model: str, scenario: str, start_year: int, end_year: int
     
     # Define constants
     nodata = -9999
-    covariate = "flood_fraction"
+    covariate = "fldfrc"
     bin_file_var = "fldfrc"
     raster_width, raster_height = 1440, 720
     dtype = "<f4"
