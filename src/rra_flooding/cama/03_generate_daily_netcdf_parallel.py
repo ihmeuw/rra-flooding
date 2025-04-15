@@ -98,11 +98,12 @@ task_template = tool.get_task_template(
         "python {script_root}/generate_daily_netcdf.py "
         "--model {{model}} "
         "--scenario {{scenario}} "
+        "--variable {{variable}} "
         "--start_year {{start_year}} "
         "--end_year {{end_year}} "
         "--variant {{variant}}"
     ).format(script_root=SCRIPT_ROOT),
-    node_args=["model", "scenario", "start_year", "end_year"],  # 👈 Include years in node_args
+    node_args=["model", "scenario", "variable", "start_year", "end_year"],  # 👈 Include years in node_args
     task_args=["variant"],  # Only variant is task-specific
     op_args=[],
 )
@@ -116,20 +117,22 @@ for model in MODELS:
         else:
             relevant_years = ["batch1", "batch2", "batch3", "batch4", "batch5", "batch6", "batch7", "batch8", "batch9", "batch10", "batch11",
                               "batch12", "batch13", "batch14", "batch15", "batch16", "batch17", "batch18"]
-        for year_batch in relevant_years:
-            start_year, end_year = YEARS[year_batch]
-            years = f"{start_year}-{end_year}"
-            check_dir = Path(f"/mnt/team/rapidresponse/pub/flooding/CaMa-Flood/cmf_v420_pkg/out/{model}_{scenario}_{variant}_{years}")
-            if not check_dir.exists():
-                continue
-            task = task_template.create_task(
-                model=model,
-                scenario=scenario,
-                start_year=start_year,
-                end_year=end_year,
-                variant="r1i1p1f1",
-            )
-            tasks.append(task)
+        for variable in VARIABLES:
+            for year_batch in relevant_years:
+                start_year, end_year = YEARS[year_batch]
+                years = f"{start_year}-{end_year}"
+                check_dir = Path(f"/mnt/team/rapidresponse/pub/flooding/CaMa-Flood/cmf_v420_pkg/out/{model}_{scenario}_{variant}_{years}")
+                if not check_dir.exists():
+                    continue
+                task = task_template.create_task(
+                    model=model,
+                    scenario=scenario,
+                    variable=variable,
+                    start_year=start_year,
+                    end_year=end_year,
+                    variant="r1i1p1f1",
+                )
+                tasks.append(task)
 
 if tasks:
     workflow.add_tasks(tasks)
