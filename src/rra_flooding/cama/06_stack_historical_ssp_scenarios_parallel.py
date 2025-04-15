@@ -4,8 +4,7 @@ from jobmon.client.tool import Tool # type: ignore
 from pathlib import Path
 
 # Script directory
-REPO_ROOT = Path.cwd()
-SCRIPT_DIR = REPO_ROOT / "src" / "rra_flooding" / "cama"
+SCRIPT_ROOT = Path.cwd()
 
 # Flood Fraction Directory
 BASE_PATH = Path('/mnt/team/rapidresponse/pub/flooding/output/fldfrc')
@@ -64,10 +63,10 @@ task_template = tool.get_task_template(
         "stderr": str(stderr_dir),
     },
     command_template=(
-        "python {script_dir}/04_stack_historical_ssp_scenarios.py "
+        "python {script_root}/stack_historical_ssp_scenarios.py "
         "--model {{model}} "
         "--scenario {{scenario}}"
-    ).format(script_dir=SCRIPT_DIR),
+    ).format(script_root=SCRIPT_ROOT),
     node_args=["model", "scenario"],  # 👈 Include years in node_args
     task_args=[],  # Only variation is task-specific
     op_args=[],
