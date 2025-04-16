@@ -2,6 +2,7 @@ import getpass
 import uuid
 from jobmon.client.tool import Tool # type: ignore
 from pathlib import Path
+import yaml
 
 # Script directory
 SCRIPT_ROOT = Path.cwd()
@@ -9,12 +10,12 @@ SCRIPT_ROOT = Path.cwd()
 BASE_PATH = Path('/mnt/team/rapidresponse/pub/flooding/output/')
 MODELS = ["ACCESS-CM2", "EC-Earth3", "INM-CM5-0", "MIROC6", "IPSL-CM6A-LR", "NorESM2-MM", "GFDL-CM4", "MRI-ESM2-0"]
 SCENARIOS = ["historical", "ssp126", "ssp245", "ssp585"]
-VARIABLE_DICT = {
-    "rivout": ["unadjusted", "max", 0],
-    "fldfrc": ["shifted10", "sum", 0],
-    "fldare": ["unadjusted", "mean", 0],
-    "flddph": ["unadjusted", "countoverthreshold", 1.0]
-}
+
+# read in yaml as dict
+with open(SCRIPT_ROOT.parent  / 'VARIABLE_DICT.yaml', 'r') as f:
+    yaml_data = yaml.safe_load(f)
+
+VARIABLE_DICT = yaml_data['VARIABLE_DICT']
 
 # Jobmon setup
 user = getpass.getuser()
@@ -68,36 +69,35 @@ task_template = tool.get_task_template(
     },
     command_template=(
         "python  {script_root}/generate_yearly_summary_netcdf_bricks.py "
-        "--variable {{variable}} "
         "--model {{model}} "
         "--scenario {{scenario}} "
-        "--summary_statistic {{summary_statistic}} "
-        "--threshold {{threshold}} "
-        "--variant {{variant}}"
+        "--variant {{variant}} "
+        "--variable {{variable}} "
+        "--adjustment_num {{adjustment_num}} "
     ).format(script_root=SCRIPT_ROOT),
-    node_args=["variable", "model", "scenario", "summary_statistic"], 
-    task_args=["threshold", "variant"],  
+    node_args=["model", "scenario", "variant", "variable", "adjustment_num"],
+    task_args=[],  
     op_args=[],
 )
 
 # Add tasks
 tasks = []
 for variable in VARIABLE_DICT.keys():
-    new_covariate, summary_statistic, threshold = VARIABLE_DICT[variable]
-    for scenario in SCENARIOS:
-        for model in MODELS:
-            base_root = BASE_PATH / variable / scenario / model
-            if not base_root.exists():
-                continue
-            task = task_template.create_task(
-                model=model,
-                scenario=scenario,
-                variable=new_covariate,
-                summary_statistic=summary_statistic,
-                threshold=threshold,
-                variant="r1i1p1f1",
-            )
-            tasks.append(task)
+    num_adjustments = len(VARIABLE_DICT[variable])
+    for i in range(num_adjustments):
+        for scenario in SCENARIOS:
+            for model in MODELS:
+                base_root = BASE_PATH / variable / scenario / model
+                if not base_root.exists():
+                    continue
+                task = task_template.create_task(
+                    model=model,
+                    scenario=scenario,
+                    variant="r1i1p1f1",
+                    variable = variable,
+                    adjustment_num=i 
+                )
+                tasks.append(task)
 
 print(f"Number of tasks: {len(tasks)}")
 
