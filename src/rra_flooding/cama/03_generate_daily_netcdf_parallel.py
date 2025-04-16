@@ -58,6 +58,9 @@ stderr_dir.mkdir(parents=True, exist_ok=True)
 # Project
 project = "proj_lsae"  # Adjust this to your project name if needed
 
+# queue
+queue = "all.q"  # Adjust this to your queue name if needed
+
 wf_uuid = uuid.uuid4()
 tool = Tool(name="daily_netcdf_generator")
 
@@ -74,7 +77,7 @@ workflow.set_default_compute_resources_from_dict(
         "memory": "50G",
         "cores": 2,
         "runtime": "60m",
-        "queue": "all.q",
+        "queue": queue,
         "project": project,  # Ensure the project is set correctly
         "stdout": str(stdout_dir),
         "stderr": str(stderr_dir),
@@ -89,7 +92,7 @@ task_template = tool.get_task_template(
         "memory": "50G",
         "cores": 2,
         "runtime": "60m",
-        "queue": "all.q",
+        "queue": queue,
         "project": project,
         "stdout": str(stdout_dir),
         "stderr": str(stderr_dir),

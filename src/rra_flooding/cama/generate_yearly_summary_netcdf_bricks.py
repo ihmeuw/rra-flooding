@@ -3,32 +3,31 @@ import numpy as np # type: ignore
 import xarray as xr # type: ignore
 import pandas as pd # type: ignore
 from pathlib import Path
-from rra_tools.shell_tools import mkdir # type: ignore
+from rra_tools.shell_tools import mkdir, touch # type: ignore
 import argparse
 
 # Create the argument parser
 parser = argparse.ArgumentParser(description="Run flooding model standardization for multiple years.")
 
 # Define arguments
+parser.add_argument("--variable", type=str, required=True, help="Variable to process")
 parser.add_argument("--model", type=str, required=True, help="Climate model name")
 parser.add_argument("--scenario", type=str, required=True, help="Climate scenario")
+parser.add_argument("--summary_statistic", type=str, required=True, help="Summary statistic to apply to the covariate")
+parser.add_argument("--threshold", type=float, required=False, default=1.0, help="Threshold for count_over_threshold statistic")
 parser.add_argument("--variant", type=str, default="r1i1p1f1", help="Model variant identifier")
 
 # Parse arguments
 args = parser.parse_args()
 
-covariate = "fldfrc_weighted"
-new_covariate = "fldfrc_weighted_sum"
-
-OUTPUT_ROOT = Path("/mnt/team/rapidresponse/pub/flooding/output/fldfrc")
-
-def create_yearly_summary_netcdf(model: str, scenario: str, variant: str = "r1i1p1f1") -> None:
+def create_yearly_summary_netcdf(model: str, scenario: str, variable:str, summary_statistic: str, threshold: float = 1.0, variant: str = "r1i1p1f1") -> None:
     """Creates yearly summary NetCDF files by summing daily flood fraction values while adding a time dimension."""
-    
-    input_dir = OUTPUT_ROOT / scenario / model
-    output_dir = OUTPUT_ROOT / scenario / model
-    mkdir(output_dir, parents=True, exist_ok=True)
 
+    original_variable = variable.str.split("_")[0]
+    root = Path(f"/mnt/team/rapidresponse/pub/flooding/output/{original_variable}/")
+    input_dir = root / scenario / model
+
+    new_covariate = f"{variable}_{summary_statistic}" 
     nodata = -9999  # Define the nodata value
 
     if scenario == "historical":
@@ -37,8 +36,7 @@ def create_yearly_summary_netcdf(model: str, scenario: str, variant: str = "r1i1
         start_year, end_year = 2015, 2100
 
     for year in range(start_year, end_year + 1):
-        input_file = input_dir / f"{covariate}_{year}.nc"
-        output_file = output_dir / f"{new_covariate}_{year}.nc"
+        input_file = input_dir / f"{variable}_{year}.nc"
 
         if not input_file.exists():
             print(f"❌ Skipping {year}, input file not found: {input_file}")
@@ -48,13 +46,31 @@ def create_yearly_summary_netcdf(model: str, scenario: str, variant: str = "r1i1
         ds = xr.open_dataset(input_file)
 
         # Mask nodata values (-9999) by converting them to NaN
-        ds[covariate] = ds[covariate].where(ds[covariate] != nodata, np.nan)
+        ds[variable] = ds[variable].where(ds[variable] != nodata, np.nan)
 
-        # Sum over time, ignoring NaNs
-        ds_yearly = ds.sum(dim="time", skipna=True)
+        # Create variable-based summary statistic
+        if summary_statistic == "sum":
+            ds_yearly = ds.sum(dim="time", skipna=True)
+        elif summary_statistic == "mean":
+            ds_yearly = ds.mean(dim="time", skipna=True)
+        elif summary_statistic == "median":
+            ds_yearly = ds.median(dim="time", skipna=True)
+        elif summary_statistic == "max":
+            ds_yearly = ds.max(dim="time", skipna=True)
+        elif summary_statistic == "min":
+            ds_yearly = ds.min(dim="time", skipna=True)
+        elif summary_statistic == "count_over_threshold":
+            if threshold is None:
+                raise ValueError("Threshold must be provided for 'count_over_threshold' statistic.")
+            ds_yearly = (ds[variable] > threshold).sum(dim="time", skipna=True)
+        else:
+            raise ValueError(
+                f"Unsupported summary_statistic: '{summary_statistic}'. "
+                "Choose from: 'sum', 'mean', 'median', 'max', 'min', 'count_over_threshold'."
+            )
 
-        # Rename variable from "fldfrc_weighted" to "fldfrc_weighted_sum"
-        ds_yearly = ds_yearly.rename({covariate: new_covariate})
+        # Rename variable
+        ds_yearly = ds_yearly.rename({variable: new_covariate})
 
         # Add a single time value corresponding to the mid-year timestamp
         ds_yearly = ds_yearly.expand_dims("time")  # Add time dimension
@@ -71,25 +87,22 @@ def create_yearly_summary_netcdf(model: str, scenario: str, variant: str = "r1i1
             "time": {"dtype": "int32", "units": "days since 1900-01-01", "zlib": True, "complevel": 5},  # Define time format
         }
 
-        # if file exists, delete it
-        if output_file.exists():
-            output_file.unlink()
-            
+        output_file = input_dir / f"{new_covariate}_{year}.nc"
+        touch(output_file, clobber=True, mode=0o775)
+
         # Save the yearly summary NetCDF
         ds_yearly.to_netcdf(output_file, format="NETCDF4", engine="netcdf4", encoding=encoding)
 
-        # Set file permissions
-        os.chmod(output_file, 0o775)
-
-        print(f"✅ Yearly summary saved: {output_file}")
-
-def stack_yearly_netcdf(model: str, scenario: str) -> None:
+def stack_yearly_netcdf(model: str, scenario: str, variable:str, summary_statistic: str) -> None:
     """
     Stacks yearly NetCDF files for a given model and scenario into a single NetCDF file.
     """
-    # Define paths
-    input_dir = OUTPUT_ROOT / scenario / model
-    output_file = OUTPUT_ROOT / scenario / model / f"stacked_{new_covariate}.nc"
+
+    original_variable = variable.str.split("_")[0]
+    root = Path(f"/mnt/team/rapidresponse/pub/flooding/output/{original_variable}/")
+    input_dir = root / scenario / model
+
+    new_covariate = f"{variable}_{summary_statistic}" 
 
     # Get all yearly NetCDF files
     netcdf_files = sorted(input_dir.glob(f"{new_covariate}_*.nc"))  # Sorting ensures proper time order
@@ -116,24 +129,21 @@ def stack_yearly_netcdf(model: str, scenario: str) -> None:
         "lat": {"dtype": "float32", "zlib": True, "complevel": 5},
     })
 
-    # If file exists, delete it
-    if output_file.exists():
-        output_file.unlink()
+    output_file = input_dir / scenario / model / f"stacked_{new_covariate}.nc"
+    touch(output_file, clobber=True, mode=0o775)
 
     # Save stacked NetCDF
     ds_stacked.to_netcdf(output_file, format="NETCDF4", encoding=encoding)
 
-    # Set file permissions to 0o775
-    os.chmod(output_file, 0o775)
-
-    print(f"✅ Stacked NetCDF saved at: {output_file}")
-
-def clean_up_yearly_netcdf_files(model: str, scenario: str) -> None:
+def clean_up_yearly_netcdf_files(model: str, scenario: str, variable: str, summary_statistic: str) -> None:
     """
     Removes yearly summary NetCDF files for a given model and scenario.
     """
-    input_dir = OUTPUT_ROOT / scenario / model
+    original_variable = variable.str.split("_")[0]
+    root = Path(f"/mnt/team/rapidresponse/pub/flooding/output/{original_variable}/")
+    input_dir = root / scenario / model
 
+    new_covariate = f"{variable}_{summary_statistic}"
     # Get all yearly NetCDF files
     netcdf_files = input_dir.glob(f"{new_covariate}_*.nc")
 
@@ -141,11 +151,11 @@ def clean_up_yearly_netcdf_files(model: str, scenario: str) -> None:
         f.unlink()
         print(f"❌ Removed: {f}")
 
-def main(model: str, scenario: str, variant: str) -> None:
+def main(model: str, scenario: str, variable: str, summary_statistic: str, threshold: float, variant: str) -> None:
     """Runs individual steps in sequence."""
-    create_yearly_summary_netcdf(model, scenario, variant)
-    stack_yearly_netcdf(model, scenario)
-    clean_up_yearly_netcdf_files(model, scenario)
+    create_yearly_summary_netcdf(model, scenario, variable, summary_statistic, threshold, variant)
+    stack_yearly_netcdf(model, scenario, variable, summary_statistic)
+    clean_up_yearly_netcdf_files(model, scenario, variable, summary_statistic)
 
 # Run main function with parsed arguments
-main(args.model, args.scenario, args.variant)
+main(args.model, args.scenario, args.variable, args.summary_statistic, args.threshold, args.variant)

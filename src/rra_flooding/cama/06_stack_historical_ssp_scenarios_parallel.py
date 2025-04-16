@@ -7,10 +7,11 @@ from pathlib import Path
 SCRIPT_ROOT = Path.cwd()
 
 # Flood Fraction Directory
-BASE_PATH = Path('/mnt/team/rapidresponse/pub/flooding/output/fldfrc')
+BASE_PATH = Path('/mnt/team/rapidresponse/pub/flooding/output/')
 # Models, scenarios
 MODELS = ["ACCESS-CM2", "EC-Earth3", "INM-CM5-0", "MIROC6", "IPSL-CM6A-LR", "NorESM2-MM", "GFDL-CM4", "MRI-ESM2-0"]
 SCENARIOS = ["ssp126", "ssp245", "ssp585"]
+VARIABLES = ["rivout_weighted_max", "fldfrc_weighted_sum", "fldare_weighted_mean", "flddph_weighted_count_over_threshold"]
 
 # Jobmon setup
 user = getpass.getuser()
@@ -32,7 +33,7 @@ tool = Tool(name="daily_netcdf_brick_adjustment")
 # Create a workflow
 workflow = tool.create_workflow(
     name=f"yearly_brick_workflow_{wf_uuid}",
-    max_concurrently_running=500,  # Adjust based on system capacity
+    max_concurrently_running=5000,  # Adjust based on system capacity
 )
 
 # Compute resources
@@ -66,8 +67,9 @@ task_template = tool.get_task_template(
         "python {script_root}/stack_historical_ssp_scenarios.py "
         "--model {{model}} "
         "--scenario {{scenario}}"
+        " --variable {{variable}} "
     ).format(script_root=SCRIPT_ROOT),
-    node_args=["model", "scenario"],  # 👈 Include years in node_args
+    node_args=["model", "scenario", "variable"],  # 👈 Include years in node_args
     task_args=[],  # Only variation is task-specific
     op_args=[],
 )
@@ -76,17 +78,19 @@ task_template = tool.get_task_template(
 
 # Add tasks
 tasks = []
-for scenario in SCENARIOS:
-    for model in MODELS:
-        fldfrc_root = BASE_PATH / scenario / model
-        if not fldfrc_root.exists():
-            print(f"Skipping {fldfrc_root}: does not exist")
-            continue
-        task = task_template.create_task(
-            model=model,
-            scenario=scenario,
-        )
-        tasks.append(task)
+for variable in VARIABLES:
+    for scenario in SCENARIOS:
+        for model in MODELS:
+            original_variable = variable.str.split("_")[0]
+            root = BASE_PATH / original_variable / scenario / model
+            if not root.exists():
+                continue
+            task = task_template.create_task(
+                model=model,
+                scenario=scenario,
+                variable=variable,
+            )
+            tasks.append(task)
 
 print(f"Number of tasks: {len(tasks)}")
 
