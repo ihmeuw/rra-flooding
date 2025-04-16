@@ -1,19 +1,18 @@
-import os
 import calendar
 import numpy as np # type: ignore
 import pandas as pd # type: ignore
 import xarray as xr # type: ignore
-from rra_tools.shell_tools import mkdir # type: ignore
+from rra_tools.shell_tools import mkdir, touch # type: ignore
 from pathlib import Path
 import argparse
 
-VARIABLE = "fldfrc"
 # Create the argument parser
 parser = argparse.ArgumentParser(description="Generate daily netcdf bricks for each model and scenario.")
 
 # Define arguments
 parser.add_argument("--model", type=str, required=True, help="Climate model name")
 parser.add_argument("--scenario", type=str, required=True, help="Climate scenario")
+parser.add_argument("--variable", type=str, required=True, help="Variable name to process")
 parser.add_argument("--start_year", type=int, required=True, help="Start year for processing")
 parser.add_argument("--end_year", type=int, required=True, help="End year for processing")
 parser.add_argument("--variant", type=str, default="r1i1p1f1", help="Model variant identifier")
@@ -27,9 +26,9 @@ OUTPUT_ROOT = Path("/mnt/team/rapidresponse/pub/flooding/output/")
 BIN_ROOT = Path("/mnt/team/rapidresponse/pub/flooding/CaMa-Flood/cmf_v420_pkg/out")
 
 # Define the function inline
-def create_netcdf_file(model: str, scenario: str, start_year: int, end_year: int, variant: str = "r1i1p1f1") -> None:
+def create_netcdf_file(model: str, scenario: str, variable: str, start_year: int, end_year: int, variant: str = "r1i1p1f1") -> None:
     batch_years = f"{start_year}-{end_year}"
-    output_dir = OUTPUT_ROOT / VARIABLE / scenario / model
+    output_dir = OUTPUT_ROOT / variable / scenario / model
     mkdir(output_dir, parents=True, exist_ok=True)
 
     bin_name = f"{model}_{scenario}_{variant}_{batch_years}"
@@ -41,8 +40,8 @@ def create_netcdf_file(model: str, scenario: str, start_year: int, end_year: int
     
     # Define constants
     nodata = -9999
-    covariate = "fldfrc"
-    bin_file_var = "fldfrc"
+    covariate = variable
+    bin_file_var = variable
     raster_width, raster_height = 1440, 720
     dtype = "<f4"
 
@@ -89,21 +88,18 @@ def create_netcdf_file(model: str, scenario: str, start_year: int, end_year: int
 
         # Define output file path
         output_file = output_dir / f"{covariate}_{year}.nc"
-
-        # Check if output file exists, if so, delete it
-        if output_file.exists():
-            output_file.unlink()
+        # Create the file with proper permissions
+        touch(output_file, clobber=True, mode=0o775)
 
         # Save dataset to a compressed NetCDF file
         ds.to_netcdf(output_file, format="NETCDF4", engine="netcdf4", encoding=encoding)
 
-        # Set file permissions to 775
-        os.chmod(output_file, 0o775)
 
 
 # Call the function with parsed arguments
 create_netcdf_file(args.model, 
                    args.scenario, 
+                   args.variable,
                    args.start_year, 
                    args.end_year, 
                    args.variant,
