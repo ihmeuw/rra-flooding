@@ -14,12 +14,17 @@ parser.add_argument("--model", type=str, required=True, help="Climate model name
 parser.add_argument("--scenario", type=str, required=True, help="Climate scenario")
 parser.add_argument("--variant", type=str, default="r1i1p1f1", help="Model variant identifier")
 parser.add_argument("--year", type=str, required=True, help="year to process",)
+parser.add_argument("--variable", type=str, required=True, help="variable to process",)
+parser.add_argument("--adjustment_number", type=str, required=True, help="Which adjustment to apply",)
+
+# Read in the variable dictionary
+# Grab all the bits for this variable / adjustment
 
 # Parse arguments
 args = parser.parse_args()
 
-covariate = "flood_fraction"
-new_covariate = "fldfrc_weighted"
+variable = "flood_fraction"
+adjusted_variable = "fldfrc_weighted"
 OUTPUT_ROOT = Path("/mnt/team/rapidresponse/pub/flooding/output/fldfrc")
 
 

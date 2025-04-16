@@ -40,8 +40,6 @@ def create_netcdf_file(model: str, scenario: str, variable: str, start_year: int
     
     # Define constants
     nodata = -9999
-    covariate = variable
-    bin_file_var = variable
     raster_width, raster_height = 1440, 720
     dtype = "<f4"
 
@@ -58,7 +56,7 @@ def create_netcdf_file(model: str, scenario: str, variable: str, start_year: int
         time_range = pd.date_range(f"{year}-01-01", periods=days_in_year)
 
         # Load binary data
-        file_path = bin_path / f"{bin_file_var}{year}.bin"
+        file_path = bin_path / f"{variable}{year}.bin"
         binary_data = np.fromfile(file_path, dtype=dtype)
 
         # Ensure correct shape
@@ -74,20 +72,20 @@ def create_netcdf_file(model: str, scenario: str, variable: str, start_year: int
 
         # Create xarray Dataset
         ds = xr.Dataset(
-            {covariate: (["time", "lat", "lon"], data_array)},
+            {variable: (["time", "lat", "lon"], data_array)},
             coords={"lon": lon, "lat": lat, "time": time_range}
         )
 
         # Define compression and data type encoding
         encoding = {
-            covariate: {"zlib": True, "complevel": 5, "dtype": "float32"},  # Apply compression to data variable
+            variable: {"zlib": True, "complevel": 5, "dtype": "float32"},  # Apply compression to data variable
             "lon": {"dtype": "float32", "zlib": True, "complevel": 5},  # Compress longitude
             "lat": {"dtype": "float32", "zlib": True, "complevel": 5},  # Compress latitude
             "time": {"dtype": "int32", "zlib": True, "complevel": 5, "units": f"days since {year}-01-01"}  # Compress time
         }
 
         # Define output file path
-        output_file = output_dir / f"{covariate}_{year}.nc"
+        output_file = output_dir / f"{variable}_{year}.nc"
         # Create the file with proper permissions
         touch(output_file, clobber=True, mode=0o775)
 

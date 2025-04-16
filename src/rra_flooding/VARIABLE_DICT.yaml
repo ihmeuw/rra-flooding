@@ -1,0 +1,30 @@
+VARIABLE_DICT:
+  rivout:
+    - adjustment:
+        type: "unadjusted"
+      summary_statistic:
+        type: "max"
+  fldfrc:
+    - adjustment:
+        type: "shifted"
+        shift_type: "percentile"
+        shift: 0.1
+      summary_statistic:
+        type: "sum"
+    - adjustment:
+        type: "shifted"
+        shift_type: "percentile"
+        shift: 0.2
+      summary_statistic:
+        type: "sum"
+  fldarea:
+    - adjustment:
+        type: "unadjusted"
+      summary_statistic:
+        type: "mean"
+  flddepth:
+    - adjustment:
+        type: "unadjusted"
+      summary_statistic:
+        type: "countoverthreshold"
+        threshold: 1.0

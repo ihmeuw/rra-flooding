@@ -7,10 +7,25 @@ from pathlib import Path
 SCRIPT_ROOT = Path.cwd()
 
 # Flood Fraction Directory
-BASE_PATH = Path('/mnt/team/rapidresponse/pub/flooding/output/fldfrc')
+BASE_PATH = Path('/mnt/team/rapidresponse/pub/flooding/output')
 # Models, scenarios
 MODELS = ["ACCESS-CM2", "EC-Earth3", "INM-CM5-0", "MIROC6", "IPSL-CM6A-LR", "NorESM2-MM", "GFDL-CM4", "MRI-ESM2-0"]
 SCENARIOS = ["historical", "ssp126", "ssp245", "ssp585"]
+
+####
+#### READ IN THE VARIABLE DICT
+####
+
+####
+#### DELETE THE COMMENTED PART BELOW
+####
+
+# VARIABLE_DICT = {
+#     "rivout": ["unadjusted", "max", 0],
+#     "fldfrc": ["shifted10", "sum", 0],
+#     "fldare": ["unadjusted", "mean", 0],
+#     "flddph": ["unadjusted", "countoverthreshold", 1.0]
+# }
 
 # Jobmon setup
 user = getpass.getuser()
@@ -66,10 +81,12 @@ task_template = tool.get_task_template(
         "python {script_root}/adjust_daily_netcdf.py "
         "--model {{model}} "
         "--scenario {{scenario}} "
-          "--variant {{variant}} "
-          "--year {{year}}"
+        "--variant {{variant}} "
+        "--year {{year}} "
+        "--variable {{variable}} "
+        "--adjustment_number {{adjustment_num}}"
     ).format(script_root=SCRIPT_ROOT),
-    node_args=["model", "scenario", "year"],  # 👈 Include years in node_args
+    node_args=["model", "scenario", "year", "variable", "adjustment_num"],  # 👈 Include years in node_args
     task_args=["variant"],  # Only variant is task-specific
     op_args=[],
 )
@@ -77,30 +94,36 @@ task_template = tool.get_task_template(
 
 # Add tasks
 tasks = []
-for scenario in SCENARIOS:
-    for model in MODELS:
-        fldfrc_root = BASE_PATH / scenario / model
-        if not fldfrc_root.exists():
-            print(f"Skipping {fldfrc_root}: does not exist")
-            continue
-        if scenario == "historical":
-            start_year, end_year = 1970, 2014
-        else:
-            start_year, end_year = 2015, 2100
-        for year in range(start_year, end_year + 1):
-            # Check if the daily NetCDF file exists for the year
-            input_file = fldfrc_root / f"flood_fraction_{year}.nc"
-            if not input_file.exists():
-                print(f"Skipping {input_file}: does not exist")
-                continue
-            # Create task for this model, scenario, and year
-            task = task_template.create_task(
-                model=model,
-                scenario=scenario,
-                variant="r1i1p1f1",
-                year=year,  # Add year to task arguments
-            )
-            tasks.append(task)
+for variable in VARIABLE_DICT.keys():
+    num_adjustments = len(VARIABLE_DICT[variable])
+    for i in range(num_adjustments):
+    # adjustment, summary_statistic, threshold = VARIABLE_DICT[variable]
+        for scenario in SCENARIOS:
+            for model in MODELS:
+                variable_root = BASE_PATH / variable / scenario / model
+                if not variable_root.exists():
+                    print(f"Skipping {variable_root}: does not exist")
+                    continue
+                if scenario == "historical":
+                    start_year, end_year = 1970, 2014
+                else:
+                    start_year, end_year = 2015, 2100
+                for year in range(start_year, end_year + 1):
+                    # Check if the daily NetCDF file exists for the year
+                    input_file = variable_root / f"{variable}_{year}.nc"
+                    if not input_file.exists():
+                        print(f"Skipping {input_file}: does not exist")
+                        continue
+                    # Create task for this model, scenario, and year
+                    task = task_template.create_task(
+                        model=model,
+                        scenario=scenario,
+                        variant="r1i1p1f1",
+                        year=year,
+                        variable = variable,
+                        adjustment_num=i  # Add year to task arguments
+                    )
+                    tasks.append(task)
 
 print(f"Number of tasks: {len(tasks)}")
 
