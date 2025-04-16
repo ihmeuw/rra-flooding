@@ -21,7 +21,7 @@ parser.add_argument("--adjustment_num", type=int, required=True, help="Which adj
 args = parser.parse_args()
 
 SCRIPT_ROOT = Path.cwd()
-OUTPUT_ROOT = Path("/mnt/team/rapidresponse/pub/flooding/output/fldfrc")
+OUTPUT_ROOT = Path("/mnt/team/rapidresponse/pub/flooding/output/")
 
 
 def parse_yaml_dictionary(variable: str, adjustment_num: str) -> dict:
@@ -70,8 +70,8 @@ def standardize_flooding_fraction(model: str, scenario: str, variant: str,  year
 
 
     print(f"Standardizing flooding fraction for {model}, {scenario}, {variant}, {year}...")
-    input_file = OUTPUT_ROOT / scenario / model / f"flood_fraction_{year}.nc"
-    output_file = OUTPUT_ROOT / scenario / model / f"{new_covariate}_{year}.nc"
+    input_file = OUTPUT_ROOT / variable / scenario / model / f"flood_fraction_{year}.nc"
+    output_file = OUTPUT_ROOT / variable / scenario / model / f"{new_covariate}_{year}.nc"
 
     if not input_file.exists():
         print(f"Input file {input_file} does not exist. Skipping...")
