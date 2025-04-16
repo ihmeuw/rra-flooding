@@ -10,10 +10,10 @@ BASE_PATH = Path('/mnt/team/rapidresponse/pub/flooding/output/')
 MODELS = ["ACCESS-CM2", "EC-Earth3", "INM-CM5-0", "MIROC6", "IPSL-CM6A-LR", "NorESM2-MM", "GFDL-CM4", "MRI-ESM2-0"]
 SCENARIOS = ["historical", "ssp126", "ssp245", "ssp585"]
 VARIABLE_DICT = {
-    "rivout": ["rivout_weighted", "max", 0],
-    "fldfrc": ["fldfrc_weighted", "sum", 0],
-    "fldare": ["fldare_weighted", "mean", 0],
-    "flddph": ["flddph_weighted", "count_over_threshold", 1.0]
+    "rivout": ["unadjusted", "max", 0],
+    "fldfrc": ["shifted10", "sum", 0],
+    "fldare": ["unadjusted", "mean", 0],
+    "flddph": ["unadjusted", "countoverthreshold", 1.0]
 }
 
 # Jobmon setup
