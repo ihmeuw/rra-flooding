@@ -70,7 +70,7 @@ def standardize_flooding_fraction(model: str, scenario: str, variant: str,  year
 
 
     print(f"Standardizing flooding fraction for {model}, {scenario}, {variant}, {year}...")
-    input_file = OUTPUT_ROOT / variable / scenario / model / f"flood_fraction_{year}.nc"
+    input_file = OUTPUT_ROOT / variable / scenario / model / f"{covariate}_{year}.nc"
     output_file = OUTPUT_ROOT / variable / scenario / model / f"{new_covariate}_{year}.nc"
 
     if not input_file.exists():
