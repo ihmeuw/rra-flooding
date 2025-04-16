@@ -64,7 +64,7 @@ def standardize_flooding_fraction(model: str, scenario: str, variant: str,  year
     if adjustment_type == "shifted":
         shift_type = variable_dict["shift_type"]
         shift = variable_dict["shift"]
-        new_covariate = f"{covariate}_{adjustment_type}_{shift}"
+        new_covariate = f"{covariate}_{adjustment_type}{shift}"
     else:
         new_covariate = f"{covariate}_{adjustment_type}"
 
