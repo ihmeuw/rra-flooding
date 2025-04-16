@@ -71,7 +71,7 @@ task_template = tool.get_task_template(
         "--variable {{variable}} "
         "--model {{model}} "
         "--scenario {{scenario}} "
-        "--summary statistic {{summary_statistic}} "
+        "--summary_statistic {{summary_statistic}} "
         "--threshold {{threshold}} "
         "--variant {{variant}}"
     ).format(script_root=SCRIPT_ROOT),
