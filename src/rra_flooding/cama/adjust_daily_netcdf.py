@@ -82,7 +82,12 @@ def standardize_flooding_fraction(model: str, scenario: str, variant: str,  year
         # rename the variable to the new name
         ds = ds.rename({covariate: new_covariate})
         ds.attrs["long_name"] = f"Unadjusted {variable}"
-
+        encoding = {
+            new_covariate: {"zlib": True, "complevel": 5, "dtype": "float32"},  # Apply compression to data variable
+            "lon": {"dtype": "float32", "zlib": True, "complevel": 5},  # Compress longitude
+            "lat": {"dtype": "float32", "zlib": True, "complevel": 5},  # Compress latitude
+            "time": {"dtype": "int32", "zlib": True, "complevel": 5, "units": f"days since {year}-01-01"}  # Compress time
+        }
         touch(output_file, clobber=True, mode=0o775)
         ds.to_netcdf(output_file, format="NETCDF4", engine="netcdf4", encoding=encoding)
 
