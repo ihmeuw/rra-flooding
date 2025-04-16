@@ -33,7 +33,7 @@ tool = Tool(name="daily_netcdf_brick_adjustment")
 # Create a workflow
 workflow = tool.create_workflow(
     name=f"yearly_brick_workflow_{wf_uuid}",
-    max_concurrently_running=500,  # Adjust based on system capacity
+    max_concurrently_running=5000,  # Adjust based on system capacity
 )
 
 # Compute resources
