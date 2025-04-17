@@ -30,7 +30,7 @@ stdout_dir.mkdir(parents=True, exist_ok=True)
 stderr_dir.mkdir(parents=True, exist_ok=True)
 
 # Project
-project = "proj_lsae"  # Adjust this to your project name if needed
+project = "proj_rapidresponse"  # Adjust this to your project name if needed
 
 wf_uuid = uuid.uuid4()
 tool = Tool(name="daily_netcdf_brick_adjustment")
