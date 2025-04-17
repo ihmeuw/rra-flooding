@@ -76,7 +76,7 @@ task_template = tool.get_task_template(
         "--variant {{variant}} "
         "--year {{year}} "
         "--variable {{variable}} "
-        "--adjustment_number {{adjustment_num}}"
+        "--adjustment_num {{adjustment_num}}"
     ).format(script_root=SCRIPT_ROOT),
     node_args=["model", "scenario", "year", "variable", "adjustment_num"],  # 👈 Include years in node_args
     task_args=["variant"],  # Only variant is task-specific
