@@ -23,7 +23,7 @@ SCRIPT_ROOT = Path.cwd()
 
 def parse_yaml_dictionary(variable: str, adjustment_num: str) -> dict:
     # Read YAML
-    with open(SCRIPT_ROOT.parent / "VARIABLE_DICT.yaml", 'r') as f:
+    with open(SCRIPT_ROOT / "src" / "rra_flooding" / "VARIABLE_DICT.yaml", 'r') as f:
         yaml_data = yaml.safe_load(f)
 
     # Extract variable-specific config
@@ -86,7 +86,7 @@ def create_yearly_summary_netcdf(model: str, scenario: str, variant: str, variab
         ds = xr.open_dataset(input_file)
 
         # Mask nodata values (-9999) by converting them to NaN
-        ds[covariate] = ds[covariate].where(ds[variable] != nodata, np.nan)
+        ds[covariate] = ds[covariate].where(ds[covariate] != nodata, np.nan)
 
         # Create variable-based summary statistic
         if summary_statistic == "sum":
@@ -131,6 +131,7 @@ def create_yearly_summary_netcdf(model: str, scenario: str, variant: str, variab
         touch(output_file, clobber=True, mode=0o775)
         # Save the yearly summary NetCDF
         ds_yearly.to_netcdf(output_file, format="NETCDF4", engine="netcdf4", encoding=encoding)
+        os.chmod(output_file, 0o775)  # Temporary
 
 def stack_yearly_netcdf(model: str, scenario: str, variable: str, adjustment_num: int) -> None: 
     """
@@ -171,11 +172,12 @@ def stack_yearly_netcdf(model: str, scenario: str, variable: str, adjustment_num
         "lat": {"dtype": "float32", "zlib": True, "complevel": 5},
     })
 
-    output_file = input_dir / scenario / model / f"stacked_{new_covariate}.nc"
+    output_file = input_dir / f"stacked_{new_covariate}.nc"
     touch(output_file, clobber=True, mode=0o775)
 
     # Save stacked NetCDF
     ds_stacked.to_netcdf(output_file, format="NETCDF4", encoding=encoding)
+    os.chmod(output_file, 0o775)  # Temporary
 
 def clean_up_yearly_netcdf_files(model: str, scenario: str, variable: str, adjustment_num: int) -> None:
     """

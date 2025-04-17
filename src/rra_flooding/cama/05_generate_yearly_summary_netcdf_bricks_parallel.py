@@ -5,14 +5,15 @@ from pathlib import Path
 import yaml
 
 # Script directory
-SCRIPT_ROOT = Path.cwd()
+SCRIPT_ROOT = Path.cwd() / 'src' / 'rra_flooding'
+print(f"Script root: {SCRIPT_ROOT}")
 
 BASE_PATH = Path('/mnt/team/rapidresponse/pub/flooding/output/')
 MODELS = ["ACCESS-CM2", "EC-Earth3", "INM-CM5-0", "MIROC6", "IPSL-CM6A-LR", "NorESM2-MM", "GFDL-CM4", "MRI-ESM2-0"]
 SCENARIOS = ["historical", "ssp126", "ssp245", "ssp585"]
 
 # read in yaml as dict
-with open(SCRIPT_ROOT.parent  / 'VARIABLE_DICT.yaml', 'r') as f:
+with open(SCRIPT_ROOT  / 'VARIABLE_DICT.yaml', 'r') as f:
     yaml_data = yaml.safe_load(f)
 
 VARIABLE_DICT = yaml_data['VARIABLE_DICT']
@@ -68,7 +69,7 @@ task_template = tool.get_task_template(
         "stderr": str(stderr_dir),
     },
     command_template=(
-        "python  {script_root}/generate_yearly_summary_netcdf_bricks.py "
+        "python  {script_root}/cama/generate_yearly_summary_netcdf_bricks.py "
         "--model {{model}} "
         "--scenario {{scenario}} "
         "--variant {{variant}} "
