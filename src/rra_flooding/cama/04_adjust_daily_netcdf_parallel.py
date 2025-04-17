@@ -2,30 +2,22 @@ import getpass
 import uuid
 from jobmon.client.tool import Tool # type: ignore
 from pathlib import Path
+import yaml
 
 # Script directory
-SCRIPT_ROOT = Path.cwd()
-
+SCRIPT_ROOT = Path.cwd() / 'src' / 'rra_flooding'
+print(f"Script root: {SCRIPT_ROOT}")
 # Flood Fraction Directory
 BASE_PATH = Path('/mnt/team/rapidresponse/pub/flooding/output')
 # Models, scenarios
 MODELS = ["ACCESS-CM2", "EC-Earth3", "INM-CM5-0", "MIROC6", "IPSL-CM6A-LR", "NorESM2-MM", "GFDL-CM4", "MRI-ESM2-0"]
 SCENARIOS = ["historical", "ssp126", "ssp245", "ssp585"]
 
-####
-#### READ IN THE VARIABLE DICT
-####
+# read in yaml as dict
+with open(SCRIPT_ROOT  / 'VARIABLE_DICT.yaml', 'r') as f:
+    yaml_data = yaml.safe_load(f)
 
-####
-#### DELETE THE COMMENTED PART BELOW
-####
-
-# VARIABLE_DICT = {
-#     "rivout": ["unadjusted", "max", 0],
-#     "fldfrc": ["shifted10", "sum", 0],
-#     "fldare": ["unadjusted", "mean", 0],
-#     "flddph": ["unadjusted", "countoverthreshold", 1.0]
-# }
+VARIABLE_DICT = yaml_data['VARIABLE_DICT']
 
 # Jobmon setup
 user = getpass.getuser()
@@ -39,7 +31,7 @@ stdout_dir.mkdir(parents=True, exist_ok=True)
 stderr_dir.mkdir(parents=True, exist_ok=True)
 
 # Project
-project = "proj_lsae"  # Adjust this to your project name if needed
+project = "proj_rapidresponse"  # Adjust this to your project name if needed
 
 wf_uuid = uuid.uuid4()
 tool = Tool(name="daily_netcdf_brick_adjustment")
@@ -78,13 +70,13 @@ task_template = tool.get_task_template(
         "stderr": str(stderr_dir),
     },
     command_template=(
-        "python {script_root}/adjust_daily_netcdf.py "
+        "python {script_root}/cama/adjust_daily_netcdf.py "
         "--model {{model}} "
         "--scenario {{scenario}} "
         "--variant {{variant}} "
         "--year {{year}} "
         "--variable {{variable}} "
-        "--adjustment_number {{adjustment_num}}"
+        "--adjustment_num {{adjustment_num}}"
     ).format(script_root=SCRIPT_ROOT),
     node_args=["model", "scenario", "year", "variable", "adjustment_num"],  # 👈 Include years in node_args
     task_args=["variant"],  # Only variant is task-specific
@@ -97,7 +89,6 @@ tasks = []
 for variable in VARIABLE_DICT.keys():
     num_adjustments = len(VARIABLE_DICT[variable])
     for i in range(num_adjustments):
-    # adjustment, summary_statistic, threshold = VARIABLE_DICT[variable]
         for scenario in SCENARIOS:
             for model in MODELS:
                 variable_root = BASE_PATH / variable / scenario / model
@@ -109,23 +100,19 @@ for variable in VARIABLE_DICT.keys():
                 else:
                     start_year, end_year = 2015, 2100
                 for year in range(start_year, end_year + 1):
-                    # Check if the daily NetCDF file exists for the year
                     input_file = variable_root / f"{variable}_{year}.nc"
                     if not input_file.exists():
                         print(f"Skipping {input_file}: does not exist")
                         continue
-                    # Create task for this model, scenario, and year
                     task = task_template.create_task(
                         model=model,
                         scenario=scenario,
                         variant="r1i1p1f1",
                         year=year,
                         variable = variable,
-                        adjustment_num=i  # Add year to task arguments
+                        adjustment_num=i 
                     )
                     tasks.append(task)
-
-print(f"Number of tasks: {len(tasks)}")
 
 if tasks:
     workflow.add_tasks(tasks)

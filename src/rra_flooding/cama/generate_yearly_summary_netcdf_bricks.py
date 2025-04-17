@@ -48,7 +48,7 @@ def create_yearly_summary_netcdf(model: str, scenario: str, variable:str, summar
         # Mask nodata values (-9999) by converting them to NaN
         ds[variable] = ds[variable].where(ds[variable] != nodata, np.nan)
 
-        # Create variable based summary statistic
+        # Create variable-based summary statistic
         if summary_statistic == "sum":
             ds_yearly = ds.sum(dim="time", skipna=True)
         elif summary_statistic == "mean":
@@ -60,9 +60,14 @@ def create_yearly_summary_netcdf(model: str, scenario: str, variable:str, summar
         elif summary_statistic == "min":
             ds_yearly = ds.min(dim="time", skipna=True)
         elif summary_statistic == "count_over_threshold":
-            threshold = threshold  
-            # Count the number of days each pixel is over the threshold
+            if threshold is None:
+                raise ValueError("Threshold must be provided for 'count_over_threshold' statistic.")
             ds_yearly = (ds[variable] > threshold).sum(dim="time", skipna=True)
+        else:
+            raise ValueError(
+                f"Unsupported summary_statistic: '{summary_statistic}'. "
+                "Choose from: 'sum', 'mean', 'median', 'max', 'min', 'count_over_threshold'."
+            )
 
         # Rename variable
         ds_yearly = ds_yearly.rename({variable: new_covariate})
