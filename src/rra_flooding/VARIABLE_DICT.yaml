@@ -17,12 +17,12 @@ VARIABLE_DICT:
         shift: 0.2
       summary_statistic:
         type: "sum"
-  fldarea:
+  fldare:
     - adjustment:
         type: "unadjusted"
       summary_statistic:
         type: "mean"
-  flddepth:
+  flddph:
     - adjustment:
         type: "unadjusted"
       summary_statistic:
