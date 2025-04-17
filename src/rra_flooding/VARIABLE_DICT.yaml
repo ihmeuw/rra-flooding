@@ -17,6 +17,12 @@ VARIABLE_DICT:
         shift: 0.2
       summary_statistic:
         type: "sum"
+    - adjustment:
+        type: "shifted"
+        shift_type: "percentile"
+        shift: 0.3
+      summary_statistic:
+        type: "sum"
   fldare:
     - adjustment:
         type: "unadjusted"

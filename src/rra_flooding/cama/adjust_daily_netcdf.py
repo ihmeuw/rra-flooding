@@ -21,12 +21,13 @@ parser.add_argument("--adjustment_num", type=int, required=True, help="Which adj
 args = parser.parse_args()
 
 SCRIPT_ROOT = Path.cwd()
+REPO_ROOT = Path(str(SCRIPT_ROOT).split("rra-flooding")[0] + "rra-flooding")
 OUTPUT_ROOT = Path("/mnt/team/rapidresponse/pub/flooding/output/")
 
 
 def parse_yaml_dictionary(variable: str, adjustment_num: str) -> dict:
     # Read YAML
-    with open(SCRIPT_ROOT / "src" / "rra_flooding" / "VARIABLE_DICT.yaml", 'r') as f:
+    with open(REPO_ROOT / "src" / "rra_flooding" / "VARIABLE_DICT.yaml", 'r') as f:
         yaml_data = yaml.safe_load(f)
 
     # Extract variable-specific config
@@ -58,21 +59,21 @@ def parse_yaml_dictionary(variable: str, adjustment_num: str) -> dict:
 def standardize_flooding_fraction(model: str, scenario: str, variant: str,  year: int, variable: str, adjustment_num: int):
     variable_dict = parse_yaml_dictionary(variable, adjustment_num)
     # parse the variable dictionary
-    covariate = variable_dict["variable"]
+    variable = variable_dict["variable"]
     adjustment_type = variable_dict["adjustment_type"]
 
     if adjustment_type == "shifted":
         shift_type = variable_dict["shift_type"]
         shift = variable_dict["shift"]
-        new_covariate = f"{covariate}_{adjustment_type}{shift}"
+        new_variable = f"{variable}_{adjustment_type}{shift}"
     else:
-        new_covariate = f"{covariate}_{adjustment_type}"
+        new_variable = f"{variable}_{adjustment_type}"
 
 
-    input_file = OUTPUT_ROOT / variable / scenario / model / f"{covariate}_{year}.nc"
+    input_file = OUTPUT_ROOT / variable / scenario / model / f"{variable}_{year}.nc"
     output_dir = OUTPUT_ROOT / variable / scenario / model
     mkdir(output_dir, parents=True, exist_ok=True)
-    output_file = output_dir / f"{new_covariate}_{year}.nc"
+    output_file = output_dir / f"{new_variable}_{year}.nc"
 
 
     if not input_file.exists():
@@ -82,8 +83,16 @@ def standardize_flooding_fraction(model: str, scenario: str, variant: str,  year
     if adjustment_type == "unadjusted":
         ds = xr.open_dataset(input_file)
         # rename the variable to the new name
-        ds = ds.rename({covariate: new_covariate})
+        ds = ds.rename({variable: new_variable})
         ds.attrs["long_name"] = f"Unadjusted {variable}"
+
+        # Define compression and data type encoding
+        encoding = {
+            new_variable: {"zlib": True, "complevel": 5, "dtype": "float32"},  # Apply compression to data variable
+            "lon": {"dtype": "float32", "zlib": True, "complevel": 5},  # Compress longitude
+            "lat": {"dtype": "float32", "zlib": True, "complevel": 5},  # Compress latitude
+            "time": {"dtype": "int32", "zlib": True, "complevel": 5, "units": f"days since {year}-01-01"}  # Compress time
+        }
 
         touch(output_file, clobber=True, mode=0o775)
         ds.to_netcdf(output_file, format="NETCDF4", engine="netcdf4", encoding=encoding)
@@ -94,7 +103,7 @@ def standardize_flooding_fraction(model: str, scenario: str, variant: str,  year
 
     # Read the daily flooding fraction data
     ds = xr.open_dataset(input_file)
-    da = ds[covariate].values  # shape: (days, lat, lon)
+    da = ds[variable].values  # shape: (days, lat, lon)
     
     # Set all negative values to NaN
     da[da < 0] = np.nan
@@ -126,13 +135,13 @@ def standardize_flooding_fraction(model: str, scenario: str, variant: str,  year
                 da_adjusted[:, y, x] = shifted_values
 
     # Save the standardized flooding fraction as a new NetCDF file
-    ds[covariate] = (('time', 'lat', 'lon'), da_adjusted)
-    ds = ds.rename({covariate: new_covariate})  
-    ds.attrs["long_name"] = f"{adjustment_type} {covariate} {shift_type} {shift}"
+    ds[variable] = (('time', 'lat', 'lon'), da_adjusted)
+    ds = ds.rename({variable: new_variable})  
+    ds.attrs["long_name"] = f"{adjustment_type} {variable} {shift_type} {shift}"
 
     # Define compression and data type encoding
     encoding = {
-        new_covariate: {"zlib": True, "complevel": 5, "dtype": "float32"},  # Apply compression to data variable
+        new_variable: {"zlib": True, "complevel": 5, "dtype": "float32"},  # Apply compression to data variable
         "lon": {"dtype": "float32", "zlib": True, "complevel": 5},  # Compress longitude
         "lat": {"dtype": "float32", "zlib": True, "complevel": 5},  # Compress latitude
         "time": {"dtype": "int32", "zlib": True, "complevel": 5, "units": f"days since {year}-01-01"}  # Compress time
