@@ -2,16 +2,24 @@ import getpass
 import uuid
 from jobmon.client.tool import Tool # type: ignore
 from pathlib import Path
+import yaml
 
 # Script directory
-SCRIPT_ROOT = Path.cwd()
+SCRIPT_ROOT = Path.cwd() / 'src' / 'rra_flooding'
+print(f"Script root: {SCRIPT_ROOT}")
 
 # Flood Fraction Directory
 BASE_PATH = Path('/mnt/team/rapidresponse/pub/flooding/output/')
 # Models, scenarios
-MODELS = ["ACCESS-CM2", "EC-Earth3", "INM-CM5-0", "MIROC6", "IPSL-CM6A-LR", "NorESM2-MM", "GFDL-CM4", "MRI-ESM2-0"]
+MODELS = ["ACCESS-CM2", "EC-Earth3", "INM-CM5-0", "MIROC6", "IPSL-CM6A-LR", "NorESM2-MM", "MRI-ESM2-0"]
+# removed GFDL-CM4 - empty
 SCENARIOS = ["ssp126", "ssp245", "ssp585"]
-VARIABLES = ["rivout_weighted_max", "fldfrc_weighted_sum", "fldare_weighted_mean", "flddph_weighted_count_over_threshold"]
+
+# read in yaml as dict
+with open(SCRIPT_ROOT  / 'VARIABLE_DICT.yaml', 'r') as f:
+    yaml_data = yaml.safe_load(f)
+
+VARIABLE_DICT = yaml_data['VARIABLE_DICT']
 
 # Jobmon setup
 user = getpass.getuser()
@@ -25,7 +33,7 @@ stdout_dir.mkdir(parents=True, exist_ok=True)
 stderr_dir.mkdir(parents=True, exist_ok=True)
 
 # Project
-project = "proj_lsae"  # Adjust this to your project name if needed
+project = "proj_rapidresponse"  # Adjust this to your project name if needed
 
 wf_uuid = uuid.uuid4()
 tool = Tool(name="daily_netcdf_brick_adjustment")
@@ -64,33 +72,30 @@ task_template = tool.get_task_template(
         "stderr": str(stderr_dir),
     },
     command_template=(
-        "python {script_root}/stack_historical_ssp_scenarios.py "
+        "python {script_root}/cama/stack_historical_ssp_scenarios.py "
         "--model {{model}} "
-        "--scenario {{scenario}}"
-        " --variable {{variable}} "
+        "--variable {{variable}} "
+        "--adjustment_num {{adjustment_num}} "
     ).format(script_root=SCRIPT_ROOT),
-    node_args=["model", "scenario", "variable"],  # 👈 Include years in node_args
-    task_args=[],  # Only variation is task-specific
+    node_args=["model", "variable", "adjustment_num"],
+    task_args=[],  
     op_args=[],
 )
 
-
-
 # Add tasks
 tasks = []
-for variable in VARIABLES:
-    for scenario in SCENARIOS:
-        for model in MODELS:
-            original_variable = variable.str.split("_")[0]
-            root = BASE_PATH / original_variable / scenario / model
-            if not root.exists():
-                continue
-            task = task_template.create_task(
-                model=model,
-                scenario=scenario,
-                variable=variable,
-            )
-            tasks.append(task)
+for variable in VARIABLE_DICT.keys():
+    num_adjustments = len(VARIABLE_DICT[variable])
+    for i in range(num_adjustments):
+        for scenario in SCENARIOS:
+            for model in MODELS:
+                task = task_template.create_task(
+                    model=model,
+                    variable = variable,
+                    adjustment_num=i 
+                )
+                tasks.append(task)
+
 
 print(f"Number of tasks: {len(tasks)}")
 
