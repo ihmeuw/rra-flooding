@@ -5,8 +5,8 @@ from pathlib import Path
 import yaml
 
 # Script directory
-SCRIPT_ROOT = Path.cwd()
-
+SCRIPT_ROOT = Path.cwd() / 'src' / 'rra_flooding'
+print(f"Script root: {SCRIPT_ROOT}")
 # Flood Fraction Directory
 BASE_PATH = Path('/mnt/team/rapidresponse/pub/flooding/output')
 # Models, scenarios
@@ -14,7 +14,7 @@ MODELS = ["ACCESS-CM2", "EC-Earth3", "INM-CM5-0", "MIROC6", "IPSL-CM6A-LR", "Nor
 SCENARIOS = ["historical", "ssp126", "ssp245", "ssp585"]
 
 # read in yaml as dict
-with open(SCRIPT_ROOT.parent  / 'VARIABLE_DICT.yaml', 'r') as f:
+with open(SCRIPT_ROOT  / 'VARIABLE_DICT.yaml', 'r') as f:
     yaml_data = yaml.safe_load(f)
 
 VARIABLE_DICT = yaml_data['VARIABLE_DICT']
@@ -31,7 +31,7 @@ stdout_dir.mkdir(parents=True, exist_ok=True)
 stderr_dir.mkdir(parents=True, exist_ok=True)
 
 # Project
-project = "proj_lsae"  # Adjust this to your project name if needed
+project = "proj_rapidresponse"  # Adjust this to your project name if needed
 
 wf_uuid = uuid.uuid4()
 tool = Tool(name="daily_netcdf_brick_adjustment")
@@ -70,13 +70,13 @@ task_template = tool.get_task_template(
         "stderr": str(stderr_dir),
     },
     command_template=(
-        "python {script_root}/adjust_daily_netcdf.py "
+        "python {script_root}/cama/adjust_daily_netcdf.py "
         "--model {{model}} "
         "--scenario {{scenario}} "
         "--variant {{variant}} "
         "--year {{year}} "
         "--variable {{variable}} "
-        "--adjustment_number {{adjustment_num}}"
+        "--adjustment_num {{adjustment_num}}"
     ).format(script_root=SCRIPT_ROOT),
     node_args=["model", "scenario", "year", "variable", "adjustment_num"],  # 👈 Include years in node_args
     task_args=["variant"],  # Only variant is task-specific
@@ -113,8 +113,6 @@ for variable in VARIABLE_DICT.keys():
                         adjustment_num=i 
                     )
                     tasks.append(task)
-
-print(f"Number of tasks: {len(tasks)}")
 
 if tasks:
     workflow.add_tasks(tasks)

@@ -26,7 +26,7 @@ OUTPUT_ROOT = Path("/mnt/team/rapidresponse/pub/flooding/output/")
 
 def parse_yaml_dictionary(variable: str, adjustment_num: str) -> dict:
     # Read YAML
-    with open(SCRIPT_ROOT.parent / "VARIABLE_DICT.yaml", 'r') as f:
+    with open(SCRIPT_ROOT / "src" / "rra_flooding" / "VARIABLE_DICT.yaml", 'r') as f:
         yaml_data = yaml.safe_load(f)
 
     # Extract variable-specific config
@@ -69,9 +69,11 @@ def standardize_flooding_fraction(model: str, scenario: str, variant: str,  year
         new_covariate = f"{covariate}_{adjustment_type}"
 
 
-    print(f"Standardizing flooding fraction for {model}, {scenario}, {variant}, {year}...")
     input_file = OUTPUT_ROOT / variable / scenario / model / f"{covariate}_{year}.nc"
-    output_file = OUTPUT_ROOT / variable / scenario / model / f"{new_covariate}_{year}.nc"
+    output_dir = OUTPUT_ROOT / variable / scenario / model
+    mkdir(output_dir, parents=True, exist_ok=True)
+    output_file = output_dir / f"{new_covariate}_{year}.nc"
+
 
     if not input_file.exists():
         print(f"Input file {input_file} does not exist. Skipping...")
@@ -90,6 +92,7 @@ def standardize_flooding_fraction(model: str, scenario: str, variant: str,  year
         }
         touch(output_file, clobber=True, mode=0o775)
         ds.to_netcdf(output_file, format="NETCDF4", engine="netcdf4", encoding=encoding)
+        os.chmod(output_file, 0o775) # temporary
 
         return
     
@@ -141,6 +144,7 @@ def standardize_flooding_fraction(model: str, scenario: str, variant: str,  year
     }
     touch(output_file, clobber=True, mode=0o775)
     ds.to_netcdf(output_file, format="NETCDF4", engine="netcdf4", encoding=encoding)
+    os.chmod(output_file, 0o775) # temporary
     
     # Close the dataset to free up resources
     ds.close()
