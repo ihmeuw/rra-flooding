@@ -4,6 +4,8 @@ import pandas as pd # type: ignore
 import xarray as xr # type: ignore
 from rra_tools.shell_tools import mkdir, touch # type: ignore
 from pathlib import Path
+from rra_flooding.data import FloodingData
+from rra_flooding import constants as rfc
 import argparse
 
 # Create the argument parser
@@ -16,37 +18,23 @@ parser.add_argument("--variable", type=str, required=True, help="Variable name t
 parser.add_argument("--start_year", type=int, required=True, help="Start year for processing")
 parser.add_argument("--end_year", type=int, required=True, help="End year for processing")
 parser.add_argument("--variant", type=str, default="r1i1p1f1", help="Model variant identifier")
+parser.add_argument("--model_root", type=str, default=rfc.MODEL_ROOT, help="Root of the model directory")
 
 # Parse arguments
 args = parser.parse_args()
 
-# Define paths
-# OUTPUT_ROOT = Path("/mnt/team/rapidresponse/pub/flooding/scratch/netcdf") # TEST DIR
-OUTPUT_ROOT = Path("/mnt/team/rapidresponse/pub/flooding/output/")
-BIN_ROOT = Path("/mnt/team/rapidresponse/pub/flooding/CaMa-Flood/cmf_v420_pkg/out")
-
 # Define the function inline
-def create_netcdf_file(model: str, scenario: str, variable: str, start_year: int, end_year: int, variant: str = "r1i1p1f1") -> None:
-    batch_years = f"{start_year}-{end_year}"
-    output_dir = OUTPUT_ROOT / variable / scenario / model
-    mkdir(output_dir, parents=True, exist_ok=True)
-
-    bin_name = f"{model}_{scenario}_{variant}_{batch_years}"
-    bin_path = BIN_ROOT / bin_name
-
-    # check if bin path exists, skip if not
-    if not bin_path.exists():
-        return
+def create_netcdf_file(model: str, scenario: str, variable: str, start_year: int, end_year: int, variant: str, model_root: str) -> None:
+    floodingdata = FloodingData(model_root)
     
+    batch_years = f"{start_year}-{end_year}"
+
     # Define constants
     nodata = -9999
-    raster_width, raster_height = 1440, 720
-    dtype = "<f4"
-
-    # Precompute coordinates
-    lon = np.linspace(-180, 180, raster_width)
-    lat = np.linspace(90, -90, raster_height)
-
+    resolution = 0.25  # degrees
+    # Precompute latitude and longitude arrays
+    lon = np.arange(-180, 180, resolution)
+    lat = np.arange(90, -90, -resolution)
 
     # Loop through years
     for year in range(start_year, end_year + 1):
@@ -56,41 +44,24 @@ def create_netcdf_file(model: str, scenario: str, variable: str, start_year: int
         time_range = pd.date_range(f"{year}-01-01", periods=days_in_year)
 
         # Load binary data
-        file_path = bin_path / f"{variable}{year}.bin"
-        binary_data = np.fromfile(file_path, dtype=dtype)
+        binary_data = floodingdata.load_cama_output(model, scenario, variant, variable, batch_years, year)
 
         # Ensure correct shape
-        expected_size = days_in_year * raster_height * raster_width
-        if binary_data.size != expected_size:
-            raise ValueError(f"File {file_path} size mismatch: {binary_data.size} vs {expected_size}")
+        expected_size = days_in_year * len(lat) * len(lon)
 
         # Reshape and handle NaNs
-        data_array = binary_data.reshape((days_in_year, raster_height, raster_width))
+        data_array = binary_data.reshape((days_in_year, len(lat), len(lon)))
         data_array[data_array >= 1e20] = nodata  # Catch all large values
         data_array[np.isnan(data_array)] = nodata  # Catch NaNs explicitly
 
 
         # Create xarray Dataset
-        ds = xr.Dataset(
+        ds = xr.Dataset( # Have this be variable_ds
             {variable: (["time", "lat", "lon"], data_array)},
             coords={"lon": lon, "lat": lat, "time": time_range}
         )
 
-        # Define compression and data type encoding
-        encoding = {
-            variable: {"zlib": True, "complevel": 5, "dtype": "float32"},  # Apply compression to data variable
-            "lon": {"dtype": "float32", "zlib": True, "complevel": 5},  # Compress longitude
-            "lat": {"dtype": "float32", "zlib": True, "complevel": 5},  # Compress latitude
-            "time": {"dtype": "int32", "zlib": True, "complevel": 5, "units": f"days since {year}-01-01"}  # Compress time
-        }
-
-        # Define output file path
-        output_file = output_dir / f"{variable}_{year}.nc"
-        # Create the file with proper permissions
-        touch(output_file, clobber=True, mode=0o775)
-
-        # Save dataset to a compressed NetCDF file
-        ds.to_netcdf(output_file, format="NETCDF4", engine="netcdf4", encoding=encoding)
+        floodingdata.save_output(ds, variable, scenario, model, year)
 
 
 
@@ -101,4 +72,5 @@ create_netcdf_file(args.model,
                    args.start_year, 
                    args.end_year, 
                    args.variant,
+                   args.model_root
                    )

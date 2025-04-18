@@ -1,0 +1,91 @@
+import numpy as np
+import xarray as xr
+from pathlib import Path
+from rra_flooding import constants as rfc
+from rra_tools.shell_tools import mkdir, touch
+
+class FloodingData:
+    """
+    Class to handle flooding data.
+    """
+
+    def __init__(self, root: str | Path = rfc.MODEL_ROOT):
+        self._root = Path(root)
+
+    @property
+    def root(self) -> Path:
+        """
+        Returns the root path of the flooding data.
+        """
+        return self._root
+
+    @property
+    def logs(self) -> Path:
+        """
+        Returns the path to the logs directory.
+        """
+        return self.root / "logs"
+    
+    def log_dir(self, step_name: str) -> Path:
+        return self.logs / step_name
+    
+    @property
+    def cama_root(self) -> Path:
+        """
+        Returns the path to the CaMa-Flood root directory.
+        """
+        return self.root / "CaMa-Flood" / "cmf_v420_pkg"
+
+    @property
+    def cama_outputs(self) -> Path:
+        """
+        Returns the path to the CaMa-Flood output directory.
+        """
+        return self.cama_root / "out" # Later make this: self.root / "cama_outputs"
+
+    def cama_output_path(self, model: str, scenario: str, variant: str, variable: str, batch_years: str, year: int | str) -> Path:
+        """
+        Returns the path to the CaMa-Flood output file for the given parameters.
+        """
+        path = self.cama_outputs / f"{model}_{scenario}_{variant}_{batch_years}" / f"{variable}{year}.bin"
+
+        return path
+
+    def load_cama_output(self, model: str, scenario: str, variant: str, variable: str, batch_years: str, year: int | str) -> Path:
+        """
+        Loads the CaMa-Flood output file for the given parameters.
+        """
+        path = self.cama_output_path(model, scenario, variant, variable, batch_years, year)
+        return np.fromfile(path, dtype="<f4")
+
+    @property
+    def output(self) -> Path:
+        """
+        Returns the path to the output directory.
+        """
+        return self.root / "output"
+    
+    def output_path(self, variable: str, scenario: str, model: str, year: int | str) -> Path:
+        """
+        Returns the path to the output directory for the given parameters.
+        """
+        path = self.output / variable / scenario / model / f"{variable}_{year}.nc"
+        return path
+    
+    def save_output(self, ds: xr.Dataset, variable: str, scenario: str, model: str, year: int | str) -> None:
+        """
+        Saves the output data to the specified path.
+        """
+        path = self.output_path(variable, scenario, model, year)
+        mkdir(path.parent, parents=True, exist_ok=True)
+        touch(path, clobber=True)
+
+        # Define compression and data type encoding
+        encoding = {
+            variable: {"zlib": True, "complevel": 5, "dtype": "float32"},  # Apply compression to data variable # Call this value
+            "lon": {"dtype": "float32", "zlib": True, "complevel": 5},  # Compress longitude
+            "lat": {"dtype": "float32", "zlib": True, "complevel": 5},  # Compress latitude
+            "time": {"dtype": "int32", "zlib": True, "complevel": 5, "units": f"days since {year}-01-01"}  # Compress time
+        }
+
+        ds.to_netcdf(path, format="NETCDF4", engine="netcdf4", encoding=encoding)
