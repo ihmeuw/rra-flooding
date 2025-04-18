@@ -19,10 +19,8 @@ parser.add_argument("--adjustment_num", type=int, required=True, help="Adjustmen
 args = parser.parse_args()
 
 # Define root directory
-# INPUT_ROOT = Path("/mnt/team/rapidresponse/pub/flooding/output/")
-INPUT_ROOT = Path("/mnt/team/rapidresponse/pub/flooding/scratch") # TEST
-# OUTPUT_ROOT = Path("/mnt/team/rapidresponse/pub/flooding/results/annual/raw")
-OUTPUT_ROOT = Path("/mnt/team/rapidresponse/pub/flooding/scratch/annual/raw") # TEST
+INPUT_ROOT = Path("/mnt/team/rapidresponse/pub/flooding/output/")
+OUTPUT_ROOT = Path("/mnt/team/rapidresponse/pub/flooding/results/annual/raw")
 mkdir(OUTPUT_ROOT, parents=True, exist_ok=True)
 SCRIPT_ROOT = Path.cwd()
 
@@ -77,8 +75,7 @@ def stack_historical_with_ssp(model: str, variable: str, adjustment_num: int) ->
     ds_historical = xr.open_dataset(historical_path)
 
     # Define SSP scenarios
-    # ssp_scenarios = ["ssp126", "ssp245", "ssp585"]
-    ssp_scenarios = ["ssp126"] # TEST
+    ssp_scenarios = ["ssp126", "ssp245", "ssp585"]
     ssp_files = [INPUT_ROOT / variable / scenario / model / f"stacked_{covariate}.nc" for scenario in ssp_scenarios]
 
     # Filter only existing SSP scenario files
@@ -105,7 +102,7 @@ def stack_historical_with_ssp(model: str, variable: str, adjustment_num: int) ->
 
         # Define encoding for compression
         encoding = {
-            variable: {"zlib": True, "complevel": 5, "dtype": "float32"},
+            covariate: {"zlib": True, "complevel": 5, "dtype": "float32"},
             "lon": {"dtype": "float32", "zlib": True, "complevel": 5},
             "lat": {"dtype": "float32", "zlib": True, "complevel": 5},
             "time": {"dtype": "int32", "zlib": True, "complevel": 5}

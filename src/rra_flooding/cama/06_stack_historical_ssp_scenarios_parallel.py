@@ -82,25 +82,9 @@ task_template = tool.get_task_template(
 )
 
 # Add tasks
-# tasks = []
-# for variable in VARIABLE_DICT.keys():
-#     num_adjustments = len(VARIABLE_DICT[variable])
-#     for i in range(num_adjustments):
-#         for model in MODELS:
-#             task = task_template.create_task(
-#                 model=model,
-#                 variable = variable,
-#                 adjustment_num=i 
-#             )
-#             tasks.append(task)
-
-
-# print(f"Number of tasks: {len(tasks)}")
-
-VARIABLES = ["fldfrc"]
 tasks = []
-for variable in VARIABLES:
-    num_adjustments = 1
+for variable in VARIABLE_DICT.keys():
+    num_adjustments = len(VARIABLE_DICT[variable])
     for i in range(num_adjustments):
         for model in MODELS:
             task = task_template.create_task(
@@ -112,6 +96,7 @@ for variable in VARIABLES:
 
 
 print(f"Number of tasks: {len(tasks)}")
+
 
 if tasks:
     workflow.add_tasks(tasks)
