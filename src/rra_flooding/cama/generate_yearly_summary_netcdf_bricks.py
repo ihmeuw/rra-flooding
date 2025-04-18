@@ -20,10 +20,11 @@ parser.add_argument("--adjustment_num", type=int, required=True, help="Which adj
 args = parser.parse_args()
 
 SCRIPT_ROOT = Path.cwd()
+REPO_ROOT = Path(str(SCRIPT_ROOT).split("rra-flooding")[0] + "rra-flooding")
 
 def parse_yaml_dictionary(variable: str, adjustment_num: str) -> dict:
     # Read YAML
-    with open(SCRIPT_ROOT / "src" / "rra_flooding" / "VARIABLE_DICT.yaml", 'r') as f:
+    with open(REPO_ROOT / 'src' / 'rra_flooding'  / 'VARIABLE_DICT.yaml', 'r') as f:
         yaml_data = yaml.safe_load(f)
 
     # Extract variable-specific config

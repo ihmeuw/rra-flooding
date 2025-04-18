@@ -5,7 +5,8 @@ from pathlib import Path
 import yaml
 
 # Script directory
-SCRIPT_ROOT = Path.cwd() / 'src' / 'rra_flooding'
+SCRIPT_ROOT = Path.cwd()
+REPO_ROOT = Path(str(SCRIPT_ROOT).split("rra-flooding")[0] + "rra-flooding")
 print(f"Script root: {SCRIPT_ROOT}")
 
 BASE_PATH = Path('/mnt/team/rapidresponse/pub/flooding/output/')
@@ -13,7 +14,7 @@ MODELS = ["ACCESS-CM2", "EC-Earth3", "INM-CM5-0", "MIROC6", "IPSL-CM6A-LR", "Nor
 SCENARIOS = ["historical", "ssp126", "ssp245", "ssp585"]
 
 # read in yaml as dict
-with open(SCRIPT_ROOT  / 'VARIABLE_DICT.yaml', 'r') as f:
+with open(REPO_ROOT / 'src' / 'rra_flooding'  / 'VARIABLE_DICT.yaml', 'r') as f:
     yaml_data = yaml.safe_load(f)
 
 VARIABLE_DICT = yaml_data['VARIABLE_DICT']
@@ -30,7 +31,9 @@ stdout_dir.mkdir(parents=True, exist_ok=True)
 stderr_dir.mkdir(parents=True, exist_ok=True)
 
 # Project
-project = "proj_rapidresponse"  # Adjust this to your project name if needed
+project = "proj_lsae"  # Adjust this to your project name if needed
+
+queue = "all.q"
 
 wf_uuid = uuid.uuid4()
 tool = Tool(name="daily_netcdf_brick_adjustment")
@@ -48,7 +51,7 @@ workflow.set_default_compute_resources_from_dict(
         "memory": "50G",
         "cores": 2,
         "runtime": "120m",
-        "queue": "all.q",
+        "queue": queue,
         "project": project,  # Ensure the project is set correctly
         "stdout": str(stdout_dir),
         "stderr": str(stderr_dir),
@@ -63,13 +66,13 @@ task_template = tool.get_task_template(
         "memory": "50G",
         "cores": 2,
         "runtime": "120m",
-        "queue": "all.q",
+        "queue": queue,
         "project": project,  # Ensure the project is set correctly
         "stdout": str(stdout_dir),
         "stderr": str(stderr_dir),
     },
     command_template=(
-        "python  {script_root}/cama/generate_yearly_summary_netcdf_bricks.py "
+        "python  {script_root}/generate_yearly_summary_netcdf_bricks.py "
         "--model {{model}} "
         "--scenario {{scenario}} "
         "--variant {{variant}} "
