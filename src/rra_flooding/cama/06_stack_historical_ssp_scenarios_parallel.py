@@ -13,7 +13,6 @@ BASE_PATH = Path('/mnt/team/rapidresponse/pub/flooding/output/')
 # Models, scenarios
 MODELS = ["ACCESS-CM2", "EC-Earth3", "INM-CM5-0", "MIROC6", "IPSL-CM6A-LR", "NorESM2-MM", "MRI-ESM2-0"]
 # removed GFDL-CM4 - empty
-SCENARIOS = ["ssp126", "ssp245", "ssp585"]
 
 # read in yaml as dict
 with open(SCRIPT_ROOT  / 'VARIABLE_DICT.yaml', 'r') as f:
@@ -83,18 +82,33 @@ task_template = tool.get_task_template(
 )
 
 # Add tasks
+# tasks = []
+# for variable in VARIABLE_DICT.keys():
+#     num_adjustments = len(VARIABLE_DICT[variable])
+#     for i in range(num_adjustments):
+#         for model in MODELS:
+#             task = task_template.create_task(
+#                 model=model,
+#                 variable = variable,
+#                 adjustment_num=i 
+#             )
+#             tasks.append(task)
+
+
+# print(f"Number of tasks: {len(tasks)}")
+
+VARIABLES = ["fldfrc"]
 tasks = []
-for variable in VARIABLE_DICT.keys():
-    num_adjustments = len(VARIABLE_DICT[variable])
+for variable in VARIABLES:
+    num_adjustments = 1
     for i in range(num_adjustments):
-        for scenario in SCENARIOS:
-            for model in MODELS:
-                task = task_template.create_task(
-                    model=model,
-                    variable = variable,
-                    adjustment_num=i 
-                )
-                tasks.append(task)
+        for model in MODELS:
+            task = task_template.create_task(
+                model=model,
+                variable = variable,
+                adjustment_num=i 
+            )
+            tasks.append(task)
 
 
 print(f"Number of tasks: {len(tasks)}")

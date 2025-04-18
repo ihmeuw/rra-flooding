@@ -19,8 +19,11 @@ parser.add_argument("--adjustment_num", type=int, required=True, help="Adjustmen
 args = parser.parse_args()
 
 # Define root directory
-INPUT_ROOT = Path("/mnt/team/rapidresponse/pub/flooding/output/")
-OUTPUT_ROOT = Path("/mnt/team/rapidresponse/pub/flooding/results/annual/raw")
+# INPUT_ROOT = Path("/mnt/team/rapidresponse/pub/flooding/output/")
+INPUT_ROOT = Path("/mnt/team/rapidresponse/pub/flooding/scratch") # TEST
+# OUTPUT_ROOT = Path("/mnt/team/rapidresponse/pub/flooding/results/annual/raw")
+OUTPUT_ROOT = Path("/mnt/team/rapidresponse/pub/flooding/scratch/annual/raw") # TEST
+mkdir(OUTPUT_ROOT, parents=True, exist_ok=True)
 SCRIPT_ROOT = Path.cwd()
 
 def parse_yaml_dictionary(variable: str, adjustment_num: str) -> dict:
@@ -50,7 +53,7 @@ def parse_yaml_dictionary(variable: str, adjustment_num: str) -> dict:
     if entry['adjustment']['type'] == "shifted":
         result["shift_type"] = entry['adjustment'].get("shift_type")
         result["shift"] = entry['adjustment'].get("shift")
-        result["covariate"] = f"{variable}_{entry['adjustment']['type']}{entry['adjustment']['shift']}"
+        result["covariate"] = f"{variable}_{entry['adjustment']['type']}{entry['adjustment']['shift']}_{entry['summary_statistic']['type']}"
 
     return result
 
@@ -74,7 +77,8 @@ def stack_historical_with_ssp(model: str, variable: str, adjustment_num: int) ->
     ds_historical = xr.open_dataset(historical_path)
 
     # Define SSP scenarios
-    ssp_scenarios = ["ssp126", "ssp245", "ssp585"]
+    # ssp_scenarios = ["ssp126", "ssp245", "ssp585"]
+    ssp_scenarios = ["ssp126"] # TEST
     ssp_files = [INPUT_ROOT / variable / scenario / model / f"stacked_{covariate}.nc" for scenario in ssp_scenarios]
 
     # Filter only existing SSP scenario files
@@ -130,7 +134,7 @@ def clean_up_stacked_ssp_files(model: str, scenario: str, variable: str, adjustm
         f.unlink()
         print(f"❌ Removed: {f}")
 
-def main(model: str, scenario: str, variable: str, adjustment_num: int) -> None:
+def main(model: str, variable: str, adjustment_num: int) -> None:
     """Runs individual steps in sequence."""
     stack_historical_with_ssp(model, variable, adjustment_num)
     # clean_up_stacked_ssp_files(model, scenario, variable, adjustment_num)
