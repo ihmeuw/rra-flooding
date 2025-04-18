@@ -12,7 +12,7 @@ ROOT /
                 Roff____{YYYMMDD}.one
     cama_outputs / 
         {MODEL}_{SCENARIO}_{VARIANT}_{BATCH} /
-            {VARIABLE}}{YEAR}.bin
+            {VARIABLE}{YEAR}.bin
             ... crap
     results / 
         raw / 

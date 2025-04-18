@@ -38,7 +38,6 @@ def create_netcdf_file(model: str, scenario: str, variable: str, start_year: int
 
     # Loop through years
     for year in range(start_year, end_year + 1):
-
         # Time range
         days_in_year = 366 if calendar.isleap(year) else 365
         time_range = pd.date_range(f"{year}-01-01", periods=days_in_year)
@@ -46,24 +45,18 @@ def create_netcdf_file(model: str, scenario: str, variable: str, start_year: int
         # Load binary data
         binary_data = floodingdata.load_cama_output(model, scenario, variant, variable, batch_years, year)
 
-        # Ensure correct shape
-        expected_size = days_in_year * len(lat) * len(lon)
-
         # Reshape and handle NaNs
         data_array = binary_data.reshape((days_in_year, len(lat), len(lon)))
         data_array[data_array >= 1e20] = nodata  # Catch all large values
         data_array[np.isnan(data_array)] = nodata  # Catch NaNs explicitly
 
-
         # Create xarray Dataset
         ds = xr.Dataset( # Have this be variable_ds
-            {variable: (["time", "lat", "lon"], data_array)},
+            {"value": (["time", "lat", "lon"], data_array)},
             coords={"lon": lon, "lat": lat, "time": time_range}
         )
 
-        floodingdata.save_output(ds, variable, scenario, model, year)
-
-
+        floodingdata.save_output(ds, variable, scenario, model, year, variable_name = "base")
 
 # Call the function with parsed arguments
 create_netcdf_file(args.model, 

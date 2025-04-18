@@ -4,6 +4,8 @@ import xarray as xr # type: ignore
 import pandas as pd # type: ignore
 from pathlib import Path
 from rra_tools.shell_tools import mkdir, touch # type: ignore
+from rra_flooding.data import FloodingData
+from rra_flooding import constants as rfc
 import argparse
 import yaml # type: ignore
 
@@ -17,6 +19,8 @@ parser.add_argument("--variant", type=str, default="r1i1p1f1", help="Model varia
 parser.add_argument("--year", type=str, required=True, help="year to process")
 parser.add_argument("--variable", type=str, required=True, help="variable to process")
 parser.add_argument("--adjustment_num", type=int, required=True, help="Which adjustment to apply")
+parser.add_argument("--model_root", type=str, default=rfc.MODEL_ROOT, help="Root of the model directory")
+
 # Parse arguments
 args = parser.parse_args()
 
@@ -70,6 +74,7 @@ def standardize_flooding_fraction(model: str, scenario: str, variant: str,  year
         new_variable = f"{variable}_{adjustment_type}"
 
 
+    
     input_file = OUTPUT_ROOT / variable / scenario / model / f"{variable}_{year}.nc"
     output_dir = OUTPUT_ROOT / variable / scenario / model
     mkdir(output_dir, parents=True, exist_ok=True)
@@ -79,9 +84,9 @@ def standardize_flooding_fraction(model: str, scenario: str, variant: str,  year
     if not input_file.exists():
         print(f"Input file {input_file} does not exist. Skipping...")
         return
+    ds = xr.open_dataset(input_file)
 
     if adjustment_type == "unadjusted":
-        ds = xr.open_dataset(input_file)
         # rename the variable to the new name
         ds = ds.rename({variable: new_variable})
         ds.attrs["long_name"] = f"Unadjusted {variable}"
@@ -102,7 +107,6 @@ def standardize_flooding_fraction(model: str, scenario: str, variant: str,  year
     
 
     # Read the daily flooding fraction data
-    ds = xr.open_dataset(input_file)
     da = ds[variable].values  # shape: (days, lat, lon)
     
     # Set all negative values to NaN

@@ -65,27 +65,35 @@ class FloodingData:
         """
         return self.root / "output"
     
-    def output_path(self, variable: str, scenario: str, model: str, year: int | str) -> Path:
+    def output_path(self, variable: str, scenario: str, model: str, year: int | str, variable_name: str) -> Path:
         """
         Returns the path to the output directory for the given parameters.
         """
-        path = self.output / variable / scenario / model / f"{variable}_{year}.nc"
+        path = self.output / variable / scenario / model / f"{variable_name}_{year}.nc"
         return path
     
-    def save_output(self, ds: xr.Dataset, variable: str, scenario: str, model: str, year: int | str) -> None:
+    def save_output(self, ds: xr.Dataset, variable: str, scenario: str, model: str, year: int | str, variable_name: str) -> None:
         """
         Saves the output data to the specified path.
         """
-        path = self.output_path(variable, scenario, model, year)
+        path = self.output_path(variable, scenario, model, year, variable_name)
         mkdir(path.parent, parents=True, exist_ok=True)
         touch(path, clobber=True)
 
         # Define compression and data type encoding
         encoding = {
-            variable: {"zlib": True, "complevel": 5, "dtype": "float32"},  # Apply compression to data variable # Call this value
+            "value": {"zlib": True, "complevel": 5, "dtype": "float32"},  # Apply compression to data variable # Call this value
             "lon": {"dtype": "float32", "zlib": True, "complevel": 5},  # Compress longitude
             "lat": {"dtype": "float32", "zlib": True, "complevel": 5},  # Compress latitude
             "time": {"dtype": "int32", "zlib": True, "complevel": 5, "units": f"days since {year}-01-01"}  # Compress time
         }
 
         ds.to_netcdf(path, format="NETCDF4", engine="netcdf4", encoding=encoding)
+
+    def load_output(self, variable: str, scenario: str, model: str, year: int | str) -> xr.Dataset:
+        """
+        Loads the output data from the specified path.
+        """
+        path = self.output_path(variable, scenario, model, year)
+        ds = xr.open_dataset(path)
+        return ds
