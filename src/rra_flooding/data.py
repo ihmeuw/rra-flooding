@@ -90,10 +90,10 @@ class FloodingData:
 
         ds.to_netcdf(path, format="NETCDF4", engine="netcdf4", encoding=encoding)
 
-    def load_output(self, variable: str, scenario: str, model: str, year: int | str) -> xr.Dataset:
+    def load_output(self, variable: str, scenario: str, model: str, year: int | str, variable_name: str) -> xr.Dataset:
         """
         Loads the output data from the specified path.
         """
-        path = self.output_path(variable, scenario, model, year)
+        path = self.output_path(variable, scenario, model, year, variable_name)
         ds = xr.open_dataset(path)
         return ds

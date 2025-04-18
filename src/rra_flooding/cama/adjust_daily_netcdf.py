@@ -1,4 +1,3 @@
-import os
 import numpy as np # type: ignore
 import xarray as xr # type: ignore
 import pandas as pd # type: ignore
@@ -26,8 +25,6 @@ args = parser.parse_args()
 
 SCRIPT_ROOT = Path.cwd()
 REPO_ROOT = Path(str(SCRIPT_ROOT).split("rra-flooding")[0] + "rra-flooding")
-OUTPUT_ROOT = Path("/mnt/team/rapidresponse/pub/flooding/output/")
-
 
 def parse_yaml_dictionary(variable: str, adjustment_num: str) -> dict:
     # Read YAML
@@ -54,13 +51,9 @@ def parse_yaml_dictionary(variable: str, adjustment_num: str) -> dict:
 
     return result
     
+def standardize_flooding_fraction(model: str, scenario: str, variant: str,  year: int, variable: str, adjustment_num: int, model_root: str):
+    floodingdata = FloodingData(model_root)
 
-
-# Define a function of model, sceanrio, and variant that loops over the years in that scenario, reads in the daily flooding fraction brick for that combination
-# and by pixels through days, finds the smallest non-negative value for each pixel (and skips is all pixels are negative or nan).
-# Then it subtracts that smallest value from all days for that pixel. Finally, it saves the standardized flooding fraction as a new NetCDF file.
-
-def standardize_flooding_fraction(model: str, scenario: str, variant: str,  year: int, variable: str, adjustment_num: int):
     variable_dict = parse_yaml_dictionary(variable, adjustment_num)
     # parse the variable dictionary
     variable = variable_dict["variable"]
@@ -73,91 +66,63 @@ def standardize_flooding_fraction(model: str, scenario: str, variant: str,  year
     else:
         new_variable = f"{variable}_{adjustment_type}"
 
-
-    
-    input_file = OUTPUT_ROOT / variable / scenario / model / f"{variable}_{year}.nc"
-    output_dir = OUTPUT_ROOT / variable / scenario / model
-    mkdir(output_dir, parents=True, exist_ok=True)
-    output_file = output_dir / f"{new_variable}_{year}.nc"
-
-
-    if not input_file.exists():
-        print(f"Input file {input_file} does not exist. Skipping...")
+    input_file_path = floodingdata.output_path(variable, scenario, model, year, variable_name = "base")
+    if not input_file_path.exists():
+        print(f"Input file {input_file_path} does not exist. Skipping...")
         return
-    ds = xr.open_dataset(input_file)
+    
+    variable_ds = floodingdata.load_output(variable, scenario, model, year, variable_name = "base")
+    # Read the daily flooding fraction data
+    variable_da = variable_ds["value"].values  # shape: (days, lat, lon)
+    # Set all negative values to NaN
+    variable_da[variable_da < 0] = np.nan
 
     if adjustment_type == "unadjusted":
         # rename the variable to the new name
-        ds = ds.rename({variable: new_variable})
-        ds.attrs["long_name"] = f"Unadjusted {variable}"
+        variable_ds.attrs["long_name"] = f"Unadjusted {variable}"
 
-        # Define compression and data type encoding
-        encoding = {
-            new_variable: {"zlib": True, "complevel": 5, "dtype": "float32"},  # Apply compression to data variable
-            "lon": {"dtype": "float32", "zlib": True, "complevel": 5},  # Compress longitude
-            "lat": {"dtype": "float32", "zlib": True, "complevel": 5},  # Compress latitude
-            "time": {"dtype": "int32", "zlib": True, "complevel": 5, "units": f"days since {year}-01-01"}  # Compress time
-        }
-
-        touch(output_file, clobber=True, mode=0o775)
-        ds.to_netcdf(output_file, format="NETCDF4", engine="netcdf4", encoding=encoding)
-        os.chmod(output_file, 0o775) # temporary
-
+        floodingdata.save_output(variable_ds, variable, scenario, model, year, variable_name = new_variable)
         return
     
-
-    # Read the daily flooding fraction data
-    da = ds[variable].values  # shape: (days, lat, lon)
-    
-    # Set all negative values to NaN
-    da[da < 0] = np.nan
-    
     # Create a copy for standardization
-    da_adjusted = da.copy()
+    variable_da_adjusted = variable_da.copy()
     # Change the name of the variable in da_weighted
     
     # Get dimensions
-    days, height, width = da.shape
+    days, height, width = variable_da.shape
     
     # Process each pixel (lat, lon) separately to handle all-NaN cases
     for y in range(height):
         for x in range(width):
-            pixel_values = da[:, y, x]
+            pixel_values = variable_da[:, y, x]
             # Skip if all values are NaN
             valid_values = pixel_values[~np.isnan(pixel_values)]
             if len(valid_values) > 0:
-                # Step 1: compute the percentile value
-                percentile_value = np.percentile(valid_values, shift * 100)
-
-                # Step 2: subtract the percentile
-                shifted_values = pixel_values - percentile_value
+                if shift_type == "percentile":
+                    # Step 1: compute the percentile value
+                    shift_value = np.percentile(valid_values, shift * 100)
+                elif shift_type == "min":
+                    # Step 1: compute the minimum value
+                    shift_value = np.min(valid_values)
+                else:
+                    raise ValueError(f"Unknown shift type: {shift_type}")
+                
+                # Step 2: subtract the shift
+                shifted_values = pixel_values - shift_value
 
                 # Step 3: # Replace negative values with 0
                 shifted_values[shifted_values < 0] = 0
 
                 # Store result
-                da_adjusted[:, y, x] = shifted_values
+                variable_da_adjusted[:, y, x] = shifted_values
 
     # Save the standardized flooding fraction as a new NetCDF file
-    ds[variable] = (('time', 'lat', 'lon'), da_adjusted)
-    ds = ds.rename({variable: new_variable})  
-    ds.attrs["long_name"] = f"{adjustment_type} {variable} {shift_type} {shift}"
+    variable_ds["value"] = (('time', 'lat', 'lon'), variable_da_adjusted)
+    variable_ds.attrs["long_name"] = f"{adjustment_type} {variable} {shift_type} {shift}"
 
-    # Define compression and data type encoding
-    encoding = {
-        new_variable: {"zlib": True, "complevel": 5, "dtype": "float32"},  # Apply compression to data variable
-        "lon": {"dtype": "float32", "zlib": True, "complevel": 5},  # Compress longitude
-        "lat": {"dtype": "float32", "zlib": True, "complevel": 5},  # Compress latitude
-        "time": {"dtype": "int32", "zlib": True, "complevel": 5, "units": f"days since {year}-01-01"}  # Compress time
-    }
-    touch(output_file, clobber=True, mode=0o775)
-    ds.to_netcdf(output_file, format="NETCDF4", engine="netcdf4", encoding=encoding)
-    os.chmod(output_file, 0o775) # temporary
-    
-    # Close the dataset to free up resources
-    ds.close()
+    floodingdata.save_output(variable_ds, variable, scenario, model, year, variable_name = new_variable)
 
 if __name__ == "__main__":
     # Call the function with the parsed arguments
-    standardize_flooding_fraction(args.model, args.scenario, args.variant, args.year, args.variable, args.adjustment_num)
+    standardize_flooding_fraction(args.model, args.scenario, args.variant, args.year, args.variable, args.adjustment_num, args.model_root)
 
