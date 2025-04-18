@@ -22,11 +22,13 @@ args = parser.parse_args()
 INPUT_ROOT = Path("/mnt/team/rapidresponse/pub/flooding/output/")
 OUTPUT_ROOT = Path("/mnt/team/rapidresponse/pub/flooding/results/annual/raw")
 mkdir(OUTPUT_ROOT, parents=True, exist_ok=True)
+
 SCRIPT_ROOT = Path.cwd()
+REPO_ROOT = Path(str(SCRIPT_ROOT).split("rra-flooding")[0] + "rra-flooding")
 
 def parse_yaml_dictionary(variable: str, adjustment_num: str) -> dict:
     # Read YAML
-    with open(SCRIPT_ROOT / "src" / "rra_flooding" / "VARIABLE_DICT.yaml", 'r') as f:
+    with open(REPO_ROOT / 'src' / 'rra_flooding'  / 'VARIABLE_DICT.yaml', 'r') as f:
         yaml_data = yaml.safe_load(f)
 
     # Extract variable-specific config

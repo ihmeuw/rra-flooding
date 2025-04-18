@@ -3,9 +3,13 @@ import uuid
 from jobmon.client.tool import Tool # type: ignore
 from pathlib import Path
 import geopandas as gpd # type: ignore
+import yaml
 
-# Code directory
+# Script directory
 SCRIPT_ROOT = Path.cwd()
+REPO_ROOT = Path(str(SCRIPT_ROOT).split("rra-flooding")[0] + "rra-flooding")
+print(f"Script root: {SCRIPT_ROOT}")
+
 
 modeling_frame = gpd.read_parquet("/mnt/team/rapidresponse/pub/population-model/ihmepop_results/2025_03_22/modeling_frame.parquet")
 block_keys = modeling_frame["block_key"].unique()
@@ -14,8 +18,13 @@ root = Path("/mnt/team/rapidresponse/pub/flooding/results/output/raw-results")
 heirarchies = ["lsae_1209", "gbd_2021"]
 # heirarchies = ["lsae_1209"]
 models = ["ACCESS-CM2", "EC-Earth3", "INM-CM5-0", "MIROC6", "IPSL-CM6A-LR", "NorESM2-MM", "MRI-ESM2-0", "GFDL-CM4"]
-OUTCOME = "fldfrc_weighted_sum"  # The variable to be stacked
 
+
+# read in yaml as dict
+with open(REPO_ROOT / 'src' / 'rra_flooding'  / 'VARIABLE_DICT.yaml', 'r') as f:
+    yaml_data = yaml.safe_load(f)
+
+VARIABLE_DICT = yaml_data['VARIABLE_DICT']
 
 # Jobmon setup
 user = getpass.getuser()
@@ -73,11 +82,38 @@ task_template = tool.get_task_template(
         "--hiearchy {{hiearchy}} "
         "--model {{model}} "
         "--block_key {{block_key}} "
+        "--variable {{variable}} "
+        "--adjustment_num {{adjustment_num}} "
     ).format(repo_root=SCRIPT_ROOT),
-    node_args=[ "hiearchy", "model", "block_key"], 
+    node_args=[ "hiearchy", "model", "block_key", "variable", "adjustment_num"],  # 👈 Include years in node_args
     task_args=[], # Only variation is task-specific
     op_args=[],
 )
+
+
+# Add tasks
+tasks = []
+for variable in VARIABLE_DICT.keys():
+    num_adjustments = len(VARIABLE_DICT[variable])
+    for i in range(num_adjustments):
+        for hiearchy in heirarchies:
+            for model in models:
+                for block_key in block_keys:
+                    # hier_model_block_file = root / hiearchy / model / block_key / "flood_fraction_sum_std" / "000.parquet"
+                    # if hier_model_block_file.exists():
+                    #     continue
+                    tasks.append(
+                        task_template.create_task(
+                            hiearchy=hiearchy,
+                            model=model,
+                            block_key=block_key,
+                            variable = variable,
+                            adjustment_num=i 
+                        )
+                    )
+                    print(f"Task created for {hiearchy}, {model}, {block_key}, {variable}, {i}")
+                    # Add task to the workflow
+
 
 # Add tasks
 tasks = []

@@ -5,7 +5,8 @@ from pathlib import Path
 import yaml
 
 # Script directory
-SCRIPT_ROOT = Path.cwd() / 'src' / 'rra_flooding'
+SCRIPT_ROOT = Path.cwd()
+REPO_ROOT = Path(str(SCRIPT_ROOT).split("rra-flooding")[0] + "rra-flooding")
 print(f"Script root: {SCRIPT_ROOT}")
 
 # Flood Fraction Directory
@@ -14,9 +15,11 @@ BASE_PATH = Path('/mnt/team/rapidresponse/pub/flooding/output/')
 MODELS = ["ACCESS-CM2", "EC-Earth3", "INM-CM5-0", "MIROC6", "IPSL-CM6A-LR", "NorESM2-MM", "MRI-ESM2-0"]
 # removed GFDL-CM4 - empty
 
+
 # read in yaml as dict
-with open(SCRIPT_ROOT  / 'VARIABLE_DICT.yaml', 'r') as f:
+with open(REPO_ROOT / 'src' / 'rra_flooding'  / 'VARIABLE_DICT.yaml', 'r') as f:
     yaml_data = yaml.safe_load(f)
+
 
 VARIABLE_DICT = yaml_data['VARIABLE_DICT']
 
@@ -71,7 +74,7 @@ task_template = tool.get_task_template(
         "stderr": str(stderr_dir),
     },
     command_template=(
-        "python {script_root}/cama/stack_historical_ssp_scenarios.py "
+        "python {script_root}/stack_historical_ssp_scenarios.py "
         "--model {{model}} "
         "--variable {{variable}} "
         "--adjustment_num {{adjustment_num}} "
