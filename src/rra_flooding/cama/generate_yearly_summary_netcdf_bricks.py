@@ -100,14 +100,14 @@ def create_yearly_summary_netcdf(model: str, scenario: str, variant: str, variab
             ds_yearly = ds.max(dim="time", skipna=True)
         elif summary_statistic == "min":
             ds_yearly = ds.min(dim="time", skipna=True)
-        elif summary_statistic == "count_over_threshold":
+        elif summary_statistic == "countoverthreshold":
             if threshold is None:
-                raise ValueError("Threshold must be provided for 'count_over_threshold' statistic.")
+                raise ValueError("Threshold must be provided for 'countoverthreshold' statistic.")
             ds_yearly = (ds[covariate] > threshold).sum(dim="time", skipna=True)
         else:
             raise ValueError(
                 f"Unsupported summary_statistic: '{summary_statistic}'. "
-                "Choose from: 'sum', 'mean', 'median', 'max', 'min', 'count_over_threshold'."
+                "Choose from: 'sum', 'mean', 'median', 'max', 'min', 'countoverthreshold'."
             )
 
         # Rename variable
