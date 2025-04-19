@@ -97,7 +97,7 @@ def stack_historical_with_ssp(model: str, variable: str, adjustment_num: int) ->
         ds_combined = xr.concat([ds_historical, ds_ssp], dim="time")
 
         # Define output path
-        output_dir = OUTPUT_ROOT / scenario / variable
+        output_dir = OUTPUT_ROOT / scenario / covariate
         mkdir(output_dir, parents=True, exist_ok=True)
         output_file = output_dir / f"{model}.nc"
         touch(output_file, clobber=True, mode=0o775)
