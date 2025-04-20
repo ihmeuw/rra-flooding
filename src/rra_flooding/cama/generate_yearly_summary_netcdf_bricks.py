@@ -30,7 +30,7 @@ def parse_yaml_dictionary(variable: str, adjustment_num: str) -> dict:
     with open(REPO_ROOT / 'src' / 'rra_flooding'  / 'VARIABLE_DICT.yaml', 'r') as f:
         yaml_data = yaml.safe_load(f)
 
-    # Extract variable-specific config
+        # Extract variable-specific config
     variable_dict = yaml_data['VARIABLE_DICT']
     variable_list = variable_dict.get(variable, [])
     if adjustment_num >= len(variable_list):
@@ -41,27 +41,25 @@ def parse_yaml_dictionary(variable: str, adjustment_num: str) -> dict:
     # Build the return dict dynamically
     result = {
         "variable": variable,
-        "summary_statistic": entry['summary_statistic']['type'],
         "adjustment_type": entry['adjustment']['type'],
-        "covariate": f"{variable}_{entry['adjustment']['type']}"
+        "summary_statistic": entry['summary_statistic']['type']
     }
-
-    if entry['summary_statistic']['type'] == "countoverthreshold":
-        result['threshold'] = entry['summary_statistic'].get("threshold")
 
     if entry['adjustment']['type'] == "shifted":
         result["shift_type"] = entry['adjustment'].get("shift_type")
         if entry['adjustment'].get("shift_type") == "percentile":
             result["shift"] = entry['adjustment'].get("shift")
-            result["covariate"] = f"{variable}_{entry['adjustment']['type']}{entry['adjustment']['shift']}_{entry['summary_statistic']['type']}"
-        elif entry['adjustment'].get("shift_type") == "min":            
-            result["covariate"] = f"{variable}_{entry['adjustment']['type']}_{entry['summary_statistic']['type']}"
+            result["adjusted_variable"] = f"{variable}_{entry['adjustment']['type']}{entry['adjustment']['shift']}"
+        elif entry['adjustment'].get("shift_type") == "min":
+            result["adjusted_variable"] = f"{variable}_{entry['adjustment']['type']}min"
         else:
             raise ValueError(f"Unknown shift type: {entry['adjustment']['shift_type']}")
+    elif entry['adjustment']['type'] == "unadjusted":
+        result["adjusted_variable"] = f"{variable}_unadjusted"
+    else:
+        raise ValueError(f"Unknown adjustment type: {entry['adjustment']['type']}")
 
-
-
-    
+    result["summary_variable"] = f"{result['adjusted_variable']}_{result['summary_statistic']}"
 
     return result
 
@@ -71,15 +69,10 @@ def create_yearly_summary_netcdf(model: str, scenario: str, variant: str, variab
 
     variable_dict = parse_yaml_dictionary(variable, adjustment_num)
     variable = variable_dict['variable']
+    adjusted_variable = variable_dict['adjusted_variable']
     summary_statistic = variable_dict['summary_statistic']
-    covariate = variable_dict['covariate']
-    adjustment_type = variable_dict["adjustment_type"]
+    summary_variable = variable_dict['summary_variable']
 
-    if adjustment_type == "shifted":
-        shift_type = variable_dict["shift_type"]
-        if shift_type == "percentile":
-            shift = variable_dict["shift"]
-        
 
     if summary_statistic == "countoverthreshold":
         threshold = variable_dict.get("threshold")
@@ -88,7 +81,6 @@ def create_yearly_summary_netcdf(model: str, scenario: str, variant: str, variab
     root = Path(f"/mnt/team/rapidresponse/pub/flooding/output/{variable}/")
     input_dir = root / scenario / model
 
-    new_covariate = f"{covariate}_{summary_statistic}" 
     nodata = -9999  # Define the nodata value
 
     if scenario == "historical":
@@ -97,7 +89,7 @@ def create_yearly_summary_netcdf(model: str, scenario: str, variant: str, variab
         start_year, end_year = 2015, 2100
 
     for year in range(start_year, end_year + 1):
-        input_file_path = floodingdata.output_path(variable, scenario, model, year, variable_name = covariate)
+        input_file_path = floodingdata.output_path(variable, scenario, model, year, variable_name = adjusted_variable)
         
 
         if not input_file_path.exists():
@@ -105,7 +97,7 @@ def create_yearly_summary_netcdf(model: str, scenario: str, variant: str, variab
             continue
 
         # Load dataset
-        variable_ds = floodingdata.load_output(variable, scenario, model, year, variable_name = covariate)
+        variable_ds = floodingdata.load_output(variable, scenario, model, year, variable_name = adjusted_variable)
 
         # Mask nodata values (-9999) by converting them to NaN
         variable_ds["value"] = variable_ds["value"].where(variable_ds["value"] != nodata, np.nan)
@@ -138,20 +130,7 @@ def create_yearly_summary_netcdf(model: str, scenario: str, variant: str, variab
         # Replace NaNs back with nodata (-9999)
         variable_ds_yearly["value"] = variable_ds_yearly["value"].fillna(nodata)
 
-        # Set attributes
-        if adjustment_type == "shifted":
-            if shift_type == "percentile":
-                variable_ds_yearly.attrs["long_name"] = f"{adjustment_type} {variable} {shift_type} {shift} {summary_statistic}"
-            elif shift_type == "min":
-                variable_ds_yearly.attrs["long_name"] = f"{adjustment_type} {variable} {shift_type} {summary_statistic}"
-            else: 
-                raise ValueError(f"Unknown shift type: {shift_type}")
-        elif adjustment_type == "unadjusted":
-            variable_ds_yearly.attrs["long_name"] = f"Unadjusted {variable} {summary_statistic}"
-        else:
-            raise ValueError(f"Unknown adjustment type: {adjustment_type}")
-
-        floodingdata.save_output(variable_ds_yearly, variable, scenario, model, year, variable_name = new_covariate)
+        floodingdata.save_output(variable_ds_yearly, variable, scenario, model, year, variable_name = summary_variable)
 
 def stack_yearly_netcdf(model: str, scenario: str, variable: str, adjustment_num: int, model_root: str) -> None: 
     """
@@ -160,17 +139,15 @@ def stack_yearly_netcdf(model: str, scenario: str, variable: str, adjustment_num
     floodingdata = FloodingData(model_root)
 
     variable_dict = parse_yaml_dictionary(variable, adjustment_num)
-    summary_statistic = variable_dict['summary_statistic']
     variable = variable_dict['variable']
-    covariate = variable_dict['covariate']
+    summary_variable = variable_dict['summary_variable']
 
     root = Path(f"/mnt/team/rapidresponse/pub/flooding/output/{variable}/")
     input_dir = root / scenario / model
 
-    new_covariate = f"{covariate}_{summary_statistic}" 
 
     # Get all yearly NetCDF files
-    netcdf_files = sorted(input_dir.glob(f"{new_covariate}_*.nc"))  # Sorting ensures proper time order
+    netcdf_files = sorted(input_dir.glob(f"{summary_variable}_*.nc"))  # Sorting ensures proper time order
 
     if not netcdf_files:
         print(f"❌ No NetCDF files found for {model} - {scenario}")
@@ -186,7 +163,7 @@ def stack_yearly_netcdf(model: str, scenario: str, variable: str, adjustment_num
     variable_ds_stacked = xr.concat(variable_ds_list, dim="time")
     variable_ds_stacked = variable_ds_stacked.assign_coords(time=("time", years))  # Set years as time
 
-    floodingdata.save_stacked_output(variable_ds_stacked, variable, scenario, model, variable_name = f"stacked_{new_covariate}")
+    floodingdata.save_stacked_output(variable_ds_stacked, variable, scenario, model, variable_name = f"stacked_{summary_variable}")
 
 
 def clean_up_yearly_netcdf_files(model: str, scenario: str, variable: str, adjustment_num: int, model_root: str) -> None:
@@ -196,16 +173,14 @@ def clean_up_yearly_netcdf_files(model: str, scenario: str, variable: str, adjus
     floodingdata = FloodingData(model_root)
 
     variable_dict = parse_yaml_dictionary(variable, adjustment_num)
-    summary_statistic = variable_dict['summary_statistic']
     variable = variable_dict['variable']
-    covariate = variable_dict['covariate']
+    summary_variable = variable_dict['summary_variable']
 
     root = Path(f"/mnt/team/rapidresponse/pub/flooding/output/{variable}/")
     input_dir = root / scenario / model
 
-    new_covariate = f"{covariate}_{summary_statistic}"
     # Get all yearly NetCDF files
-    netcdf_files = input_dir.glob(f"{new_covariate}_*.nc")
+    netcdf_files = input_dir.glob(f"{summary_variable}_*.nc")
 
     for f in netcdf_files:
         f.unlink()
