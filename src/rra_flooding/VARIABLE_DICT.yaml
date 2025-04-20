@@ -3,12 +3,16 @@ VARIABLE_DICT:
     - adjustment:
         type: "shifted"
         shift_type: "percentile"
-        shift: 0.2
+        shift: 0.1
       summary_statistic:
         type: "sum"
     - adjustment:
         type: "shifted"
-        shift_type: "percentile"
+        shift_type: "min"
         shift: 0.3
+      summary_statistic:
+        type: "sum"
+    - adjustment:
+        type: "unadjusted"
       summary_statistic:
         type: "sum"

@@ -104,7 +104,7 @@ def stack_historical_with_ssp(model: str, variable: str, adjustment_num: int) ->
 
         # Define encoding for compression
         encoding = {
-            covariate: {"zlib": True, "complevel": 5, "dtype": "float32"},
+            "value": {"zlib": True, "complevel": 5, "dtype": "float32"},
             "lon": {"dtype": "float32", "zlib": True, "complevel": 5},
             "lat": {"dtype": "float32", "zlib": True, "complevel": 5},
             "time": {"dtype": "int32", "zlib": True, "complevel": 5}

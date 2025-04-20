@@ -373,7 +373,7 @@ def pixel_main(
         ds_file = root / f"{model}.nc"
         ds = xr.open_dataset(ds_file)
         # rename lat/lon to latitude/longitude
-        ds = ds.rename({"lat": "latitude", "lon": "longitude", "time": "year", OUTCOME: "value"})
+        ds = ds.rename({"lat": "latitude", "lon": "longitude", "time": "year", "value": "value"})
         ds = ds.sel(**climate_slice)  # type: ignore[arg-type]
         for year in years:
             # Load population data and grab the underlying ndarray (we don't want the metadata)
