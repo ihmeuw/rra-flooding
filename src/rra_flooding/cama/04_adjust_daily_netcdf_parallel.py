@@ -74,13 +74,12 @@ task_template = tool.get_task_template(
         "python {script_root}/adjust_daily_netcdf.py "
         "--model {{model}} "
         "--scenario {{scenario}} "
-        "--variant {{variant}} "
         "--year {{year}} "
         "--variable {{variable}} "
         "--adjustment_num {{adjustment_num}}"
     ).format(script_root=SCRIPT_ROOT),
     node_args=["model", "scenario", "year", "variable", "adjustment_num"],  # 👈 Include years in node_args
-    task_args=["variant"],  # Only variant is task-specific
+    task_args=[],
     op_args=[],
 )
 
@@ -92,6 +91,9 @@ for variable in VARIABLE_DICT.keys():
     for i in range(num_adjustments):
         for scenario in SCENARIOS:
             for model in MODELS:
+                # Can we make it more efficient by having a list of models for each scenario? Or something?
+                if model == "GFDL-CM4" and scenario == "ssp126":
+                        continue
                 variable_root = BASE_PATH / variable / scenario / model
                 if not variable_root.exists():
                     print(f"Skipping {variable_root}: does not exist")
@@ -108,7 +110,6 @@ for variable in VARIABLE_DICT.keys():
                     task = task_template.create_task(
                         model=model,
                         scenario=scenario,
-                        variant="r1i1p1f1",
                         year=year,
                         variable = variable,
                         adjustment_num=i 

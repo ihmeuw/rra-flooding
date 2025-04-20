@@ -42,7 +42,8 @@ def parse_yaml_dictionary(variable: str, adjustment_num: str) -> dict:
     # Build the return dict dynamically
     result = {
         "variable": variable,
-        "adjustment_type": entry['adjustment']['type']
+        "adjustment_type": entry['adjustment']['type'],
+        "summary_statistic": entry['summary_statistic']['type']
     }
 
     if entry['adjustment']['type'] == "shifted":
@@ -59,6 +60,8 @@ def parse_yaml_dictionary(variable: str, adjustment_num: str) -> dict:
     else:
         raise ValueError(f"Unknown adjustment type: {entry['adjustment']['type']}")
 
+    result["summary_variable"] = f"{result['adjusted_variable']}_{result['summary_statistic']}"
+
     return result
 
 def stack_historical_with_ssp(model: str, variable: str, adjustment_num: int) -> None:
@@ -67,9 +70,9 @@ def stack_historical_with_ssp(model: str, variable: str, adjustment_num: int) ->
     """
     variable_dict = parse_yaml_dictionary(variable, adjustment_num)
     variable = variable_dict['variable']
-    adjusted_variable = variable_dict['adjusted_variable']
+    summary_variable = variable_dict['summary_variable']
 
-    historical_path = INPUT_ROOT / variable /"historical" / model / f"stacked_{adjusted_variable}.nc"
+    historical_path = INPUT_ROOT / variable /"historical" / model / f"stacked_{summary_variable}.nc"
 
     # Check if historical file exists
     if not historical_path.exists():
@@ -81,7 +84,7 @@ def stack_historical_with_ssp(model: str, variable: str, adjustment_num: int) ->
 
     # Define SSP scenarios
     ssp_scenarios = ["ssp126", "ssp245", "ssp585"]
-    ssp_files = [INPUT_ROOT / variable / scenario / model / f"stacked_{adjusted_variable}.nc" for scenario in ssp_scenarios]
+    ssp_files = [INPUT_ROOT / variable / scenario / model / f"stacked_{summary_variable}.nc" for scenario in ssp_scenarios]
 
     # Filter only existing SSP scenario files
     valid_ssp_files = [(scenario, file) for scenario, file in zip(ssp_scenarios, ssp_files) if file.exists()]
@@ -100,7 +103,7 @@ def stack_historical_with_ssp(model: str, variable: str, adjustment_num: int) ->
         ds_combined = xr.concat([ds_historical, ds_ssp], dim="time")
 
         # Define output path
-        output_dir = OUTPUT_ROOT / scenario / adjusted_variable
+        output_dir = OUTPUT_ROOT / scenario / summary_variable
         mkdir(output_dir, parents=True, exist_ok=True)
         output_file = output_dir / f"{model}.nc"
         touch(output_file, clobber=True, mode=0o775)
@@ -123,14 +126,13 @@ def clean_up_stacked_ssp_files(model: str, scenario: str, variable: str, adjustm
     Removes yearly summary NetCDF files for a given model and scenario.
     """
     variable_dict = parse_yaml_dictionary(variable, adjustment_num)
-    summary_statistic = variable_dict['summary_statistic']
     variable = variable_dict['variable']
-    adjusted_variable = variable_dict['adjusted_variable']
+    summary_variable = variable_dict['summary_variable']
 
     input_dir = INPUT_ROOT / variable / scenario / model
 
     # Get all yearly NetCDF files
-    netcdf_files = input_dir.glob(f"stacked_{adjusted_variable}.nc")
+    netcdf_files = input_dir.glob(f"stacked_{summary_variable}.nc")
 
     for f in netcdf_files:
         f.unlink()
