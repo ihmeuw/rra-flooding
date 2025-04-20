@@ -3,9 +3,13 @@ import uuid
 from jobmon.client.tool import Tool  # type: ignore
 from pathlib import Path
 import geopandas as gpd  # type: ignore
+import yaml
 
-# Code directory
+# Script directory
 SCRIPT_ROOT = Path.cwd()
+REPO_ROOT = Path(str(SCRIPT_ROOT).split("rra-flooding")[0] + "rra-flooding")
+print(f"Script root: {SCRIPT_ROOT}")
+
 
 modeling_frame = gpd.read_parquet("/mnt/team/rapidresponse/pub/population-model/ihmepop_results/2025_03_22/modeling_frame.parquet")
 block_keys = modeling_frame["block_key"].unique()
@@ -13,9 +17,16 @@ root = Path("/mnt/team/rapidresponse/pub/flooding/results/output/raw-results")
 
 hierarchies = ["lsae_1209", "gbd_2021"]
 # hierarchies = ["gbd_2021"]
-models = ["ACCESS-CM2", "EC-Earth3", "INM-CM5-0", "MIROC6", "IPSL-CM6A-LR", "NorESM2-MM", "MRI-ESM2-0", "GFDL-CM4"]
+models = ["ACCESS-CM2", "EC-Earth3", "INM-CM5-0", "MIROC6", "IPSL-CM6A-LR", "NorESM2-MM", "MRI-ESM2-0"]#, "GFDL-CM4"]
+# Was getting this error only for *every* non-126 GFDl run: Some parent locations are not in the results: [63156 63389 63390 ... 44847 44848 61467]
 scenarios = ["ssp126", "ssp245", "ssp585"]
 variants = ["r1i1p1f1"]
+
+# read in yaml as dict
+with open(REPO_ROOT / 'src' / 'rra_flooding'  / 'VARIABLE_DICT.yaml', 'r') as f:
+    yaml_data = yaml.safe_load(f)
+
+VARIABLE_DICT = yaml_data['VARIABLE_DICT']
 
 
 # Jobmon setup
@@ -70,13 +81,14 @@ task_template = tool.get_task_template(
         "stderr": str(stderr_dir),
     },
     command_template=(
-        "python {repo_root}/06a_pixel_hierarchy.py "
+        "python {script_root}/pixel_hierarchy.py "
+        "--variable {{variable}} "
+        "--adjustment_num {{adjustment_num}} "
         "--hierarchy {{hierarchy}} "
         "--scenario {{scenario}} "
         "--model {{model}} "
-        "--variant {{variant}} "
-    ).format(repo_root=SCRIPT_ROOT),
-    node_args=["hierarchy", "scenario", "model", "variant"],
+    ).format(script_root=SCRIPT_ROOT),
+    node_args=["hierarchy", "scenario", "model", "variable", "adjustment_num"],
     task_args=[],
     op_args=[],
 )
@@ -95,12 +107,13 @@ aggregate_task_template = tool.get_task_template(
         "stderr": str(stderr_dir),
     },
     command_template=(
-        "python {repo_root}/06b_pixel_mean_generation.py "
+        "python {script_root}/pixel_mean_generation.py "
+        "--variable {{variable}} "
+        "--adjustment_num {{adjustment_num}} "
         "--hierarchy {{hierarchy}} "
         "--scenario {{scenario}} "
-        "--variant {{variant}} "
-    ).format(repo_root=REPO_ROOT),
-    node_args=["hierarchy", "scenario", "variant"],
+    ).format(script_root=SCRIPT_ROOT),
+    node_args=["hierarchy", "scenario", "variable", "adjustment_num"],
     task_args=[],
     op_args=[],
 )
@@ -108,31 +121,36 @@ aggregate_task_template = tool.get_task_template(
 # Store tasks
 tasks = []
 aggregation_tasks = {}
-
-for hierarchy in hierarchies:
-    for model in models:
-        for scenario in scenarios:
-            if model == "GFDL-CM4" and scenario == "ssp126":
-                continue
-            for variant in variants:
-                # Create the primary task
-                task = task_template.create_task(
-                    hierarchy=hierarchy,
-                    scenario=scenario,
-                    model=model,
-                    variant=variant,
-                )
-                tasks.append(task)
-
-                # Create an aggregation task only once per unique combination of hierarchy, scenario, and variant
-                agg_key = (hierarchy, scenario, variant)
-                if agg_key not in aggregation_tasks:
-                    agg_task = aggregate_task_template.create_task(
+# Add tasks
+tasks = []
+for variable in VARIABLE_DICT.keys():
+    num_adjustments = len(VARIABLE_DICT[variable])
+    for i in range(num_adjustments):
+        for hierarchy in hierarchies:
+            for model in models:
+                for scenario in scenarios:
+                    if model == "GFDL-CM4" and scenario == "ssp126":
+                        continue
+                    # Create the primary task
+                    task = task_template.create_task(
+                        variable = variable,
+                        adjustment_num=i,
                         hierarchy=hierarchy,
                         scenario=scenario,
-                        variant=variant,
+                        model=model,
                     )
-                    aggregation_tasks[agg_key] = agg_task  # Store it to reuse
+                    tasks.append(task)
+
+                    # Create an aggregation task only once per unique combination of hierarchy, scenario, and variant
+                    agg_key = (variable, i, hierarchy, scenario)
+                    if agg_key not in aggregation_tasks:
+                        agg_task = aggregate_task_template.create_task(
+                            variable = variable,
+                            adjustment_num=i,
+                            hierarchy=hierarchy,
+                            scenario=scenario,
+                        )
+                        aggregation_tasks[agg_key] = agg_task  # Store it to reuse
 
 # ✅ Add tasks to workflow
 workflow.add_tasks(tasks + list(aggregation_tasks.values()))
@@ -141,13 +159,13 @@ workflow.add_tasks(tasks + list(aggregation_tasks.values()))
 for hierarchy in hierarchies:
     for scenario in scenarios:
         for variant in variants:
-            agg_key = (hierarchy, scenario, variant)
+            agg_key = (variable, i, hierarchy, scenario)
             if agg_key in aggregation_tasks:
                 agg_task = aggregation_tasks[agg_key]
                 
                 # Get all pixel tasks that match the same hierarchy, scenario, and variant
                 pixel_tasks = workflow.get_tasks_by_node_args(
-                    "hierarchy_generation", hierarchy=hierarchy, scenario=scenario, variant=variant
+                    "hierarchy_generation", variable = variable, adjustment_num=i, hierarchy=hierarchy, scenario=scenario
                 )
                 
                 # Add dependency: aggregation should wait for all matching pixel tasks

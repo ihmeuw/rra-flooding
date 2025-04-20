@@ -78,13 +78,13 @@ task_template = tool.get_task_template(
         "stderr": str(stderr_dir),
     },
     command_template=(
-        "python {repo_root}/05_pixel_main.py "
+        "python {script_root}/pixel_main.py "
         "--hiearchy {{hiearchy}} "
         "--model {{model}} "
         "--block_key {{block_key}} "
         "--variable {{variable}} "
         "--adjustment_num {{adjustment_num}} "
-    ).format(repo_root=SCRIPT_ROOT),
+    ).format(script_root=SCRIPT_ROOT),
     node_args=[ "hiearchy", "model", "block_key", "variable", "adjustment_num"],  # 👈 Include years in node_args
     task_args=[], # Only variation is task-specific
     op_args=[],
@@ -113,28 +113,6 @@ for variable in VARIABLE_DICT.keys():
                     )
                     print(f"Task created for {hiearchy}, {model}, {block_key}, {variable}, {i}")
                     # Add task to the workflow
-
-
-# Add tasks
-tasks = []
-
-for hiearchy in heirarchies:
-    for model in models:
-        for block_key in block_keys:
-            # hier_model_block_file = root / hiearchy / model / block_key / "flood_fraction_sum_std" / "000.parquet"
-            # if hier_model_block_file.exists():
-            #     continue
-            tasks.append(
-                task_template.create_task(
-                    hiearchy=hiearchy,
-                    model=model,
-                    block_key=block_key,
-                )
-            )
-            print(f"Task created for {hiearchy}, {model}, {block_key}")
-            # Add task to the workflow
-
-
 
 
 print(f"Number of tasks: {len(tasks)}")

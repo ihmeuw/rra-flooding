@@ -91,6 +91,10 @@ for variable in VARIABLE_DICT.keys():
     for i in range(num_adjustments):
         for scenario in SCENARIOS:
             for model in MODELS:
+                # Can we make it more efficient by having a list of models for each scenario? Or something?
+                if model == "GFDL-CM4" and scenario == "ssp126":
+                        continue
+                # Is this next part still needed if I do the previous
                 base_root = BASE_PATH / variable / scenario / model
                 if not base_root.exists():
                     continue

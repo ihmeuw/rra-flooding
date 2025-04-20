@@ -15,6 +15,7 @@ from typing import Literal, NamedTuple
 import itertools
 from rra_tools.shell_tools import mkdir # type: ignore
 import argparse
+import yaml
 
 parser = argparse.ArgumentParser(description="Run James code")
 
@@ -22,6 +23,8 @@ parser = argparse.ArgumentParser(description="Run James code")
 parser.add_argument("--model", type=str, required=True, help="Model")
 parser.add_argument("--hiearchy", type=str, required=True, help="Hiearchy")
 parser.add_argument("--block_key", type=str, required=True, help="Block Key")
+parser.add_argument("--variable", type=str, required=True, help="Variable to process")
+parser.add_argument("--adjustment_num", type=int, required=True, help="Adjustment number")
 
 # Parse arguments
 args = parser.parse_args()
@@ -29,8 +32,48 @@ args = parser.parse_args()
 hiearchy = args.hiearchy
 block_key = args.block_key
 model = args.model
+variable = args.variable
+adjustment_num = args.adjustment_num
 
-OUTCOME = "fldfrc_weighted_sum"  # The variable to be stacked
+
+SCRIPT_ROOT = Path.cwd()
+REPO_ROOT = Path(str(SCRIPT_ROOT).split("rra-flooding")[0] + "rra-flooding")
+
+def parse_yaml_dictionary(variable: str, adjustment_num: str) -> dict:
+    # Read YAML
+    with open(REPO_ROOT / 'src' / 'rra_flooding'  / 'VARIABLE_DICT.yaml', 'r') as f:
+        yaml_data = yaml.safe_load(f)
+
+    # Extract variable-specific config
+    variable_dict = yaml_data['VARIABLE_DICT']
+    variable_list = variable_dict.get(variable, [])
+    if adjustment_num >= len(variable_list):
+        raise IndexError(f"Adjustment number {adjustment_num} out of range for variable '{variable}'")
+
+    entry = variable_list[adjustment_num]
+
+    # Build the return dict dynamically
+    result = {
+        "variable": variable,
+        "summary_statistic": entry['summary_statistic']['type'],
+        "adjustment_type": entry['adjustment']['type'],
+        "covariate": f"{variable}_{entry['adjustment']['type']}"
+    }
+
+    if entry['summary_statistic']['type'] == "countoverthreshold":
+        result['threshold'] = entry['summary_statistic'].get("threshold")
+
+    if entry['adjustment']['type'] == "shifted":
+        result["shift_type"] = entry['adjustment'].get("shift_type")
+        result["shift"] = entry['adjustment'].get("shift")
+        result["covariate"] = f"{variable}_{entry['adjustment']['type']}{entry['adjustment']['shift']}_{entry['summary_statistic']['type']}"
+
+    return result
+
+variable_dict = parse_yaml_dictionary(variable, adjustment_num)
+variable = variable_dict['variable']
+covariate = variable_dict['covariate']
+OUTCOME = covariate  # The variable to be stacked
 
 # Climate measures to calculate
 AGGREGATION_MEASURES = [

@@ -1,8 +1,8 @@
-import numpy as np
-import xarray as xr
+import numpy as np # type: ignore
+import xarray as xr # type: ignore
 from pathlib import Path
 from rra_flooding import constants as rfc
-from rra_tools.shell_tools import mkdir, touch
+from rra_tools.shell_tools import mkdir, touch # type: ignore
 
 class FloodingData:
     """
@@ -97,3 +97,27 @@ class FloodingData:
         path = self.output_path(variable, scenario, model, year, variable_name)
         ds = xr.open_dataset(path)
         return ds
+    
+    def stacked_output_path(self, variable: str, scenario: str, model: str, variable_name: str) -> Path:
+        """
+        Returns the path to the output directory for the given parameters.
+        """
+        path = self.output / variable / scenario / model / f"{variable_name}.nc"
+        return path
+
+    def save_stacked_output(self, ds: xr.Dataset, variable: str, scenario: str, model: str, variable_name: str) -> None:
+        """
+        Saves the output data to the specified path.
+        """
+        path = self.stacked_output_path(variable, scenario, model, variable_name)
+        mkdir(path.parent, parents=True, exist_ok=True)
+        touch(path, clobber=True)
+
+        encoding = {var: {"zlib": True, "complevel": 5, "dtype": "float32"} for var in ds.data_vars}
+        encoding.update({
+            "time": {"dtype": "int32"},  # Remove "units" from encoding
+            "lon": {"dtype": "float32", "zlib": True, "complevel": 5},
+            "lat": {"dtype": "float32", "zlib": True, "complevel": 5},
+        })
+
+        ds.to_netcdf(path, format="NETCDF4", engine="netcdf4", encoding=encoding)   

@@ -4,6 +4,8 @@ import xarray as xr # type: ignore
 import pandas as pd # type: ignore
 from pathlib import Path
 from rra_tools.shell_tools import mkdir, touch # type: ignore
+from rra_flooding.data import FloodingData
+from rra_flooding import constants as rfc
 import argparse
 import yaml # type: ignore
 
@@ -16,6 +18,7 @@ parser.add_argument("--scenario", type=str, required=True, help="Climate scenari
 parser.add_argument("--variant", type=str, default="r1i1p1f1", help="Model variant identifier")
 parser.add_argument("--variable", type=str, required=True, help="variable to process")
 parser.add_argument("--adjustment_num", type=int, required=True, help="Which adjustment to apply")
+parser.add_argument("--model_root", type=str, default=rfc.MODEL_ROOT, help="Root of the model directory")
 # Parse arguments
 args = parser.parse_args()
 
@@ -55,12 +58,21 @@ def parse_yaml_dictionary(variable: str, adjustment_num: str) -> dict:
 
     return result
 
-def create_yearly_summary_netcdf(model: str, scenario: str, variant: str, variable: str, adjustment_num: int) -> None:
+def create_yearly_summary_netcdf(model: str, scenario: str, variant: str, variable: str, adjustment_num: int, model_root: str) -> None:
     """Creates yearly summary NetCDF files by summing daily flood fraction values while adding a time dimension."""
+    floodingdata = FloodingData(model_root)
+
     variable_dict = parse_yaml_dictionary(variable, adjustment_num)
     variable = variable_dict['variable']
     summary_statistic = variable_dict['summary_statistic']
     covariate = variable_dict['covariate']
+    adjustment_type = variable_dict["adjustment_type"]
+
+    if adjustment_type == "shifted":
+        shift_type = variable_dict["shift_type"]
+        shift = variable_dict["shift"]
+        
+
     if summary_statistic == "countoverthreshold":
         threshold = variable_dict.get("threshold")
     
@@ -77,67 +89,57 @@ def create_yearly_summary_netcdf(model: str, scenario: str, variant: str, variab
         start_year, end_year = 2015, 2100
 
     for year in range(start_year, end_year + 1):
-        input_file = input_dir / f"{covariate}_{year}.nc"
+        input_file_path = floodingdata.output_path(variable, scenario, model, year, variable_name = covariate)
+        
 
-        if not input_file.exists():
-            print(f"❌ Skipping {year}, input file not found: {input_file}")
+        if not input_file_path.exists():
+            print(f"❌ Skipping {year}, input file not found: {input_file_path}")
             continue
 
         # Load dataset
-        ds = xr.open_dataset(input_file)
+        variable_ds = floodingdata.load_output(variable, scenario, model, year, variable_name = covariate)
 
         # Mask nodata values (-9999) by converting them to NaN
-        ds[covariate] = ds[covariate].where(ds[covariate] != nodata, np.nan)
+        variable_ds["value"] = variable_ds["value"].where(variable_ds["value"] != nodata, np.nan)
 
         # Create variable-based summary statistic
         if summary_statistic == "sum":
-            ds_yearly = ds.sum(dim="time", skipna=True)
+            variable_ds_yearly = variable_ds.sum(dim="time", skipna=True)
         elif summary_statistic == "mean":
-            ds_yearly = ds.mean(dim="time", skipna=True)
+            variable_ds_yearly = variable_ds.mean(dim="time", skipna=True)
         elif summary_statistic == "median":
-            ds_yearly = ds.median(dim="time", skipna=True)
+            variable_ds_yearly = variable_ds.median(dim="time", skipna=True)
         elif summary_statistic == "max":
-            ds_yearly = ds.max(dim="time", skipna=True)
+            variable_ds_yearly = variable_ds.max(dim="time", skipna=True)
         elif summary_statistic == "min":
-            ds_yearly = ds.min(dim="time", skipna=True)
+            variable_ds_yearly = variable_ds.min(dim="time", skipna=True)
         elif summary_statistic == "countoverthreshold":
             if threshold is None:
                 raise ValueError("Threshold must be provided for 'countoverthreshold' statistic.")
-            ds_yearly = (ds[covariate] > threshold).sum(dim="time", skipna=True)
+            variable_ds_yearly = (variable_ds["value"] > threshold).sum(dim="time", skipna=True)
         else:
             raise ValueError(
                 f"Unsupported summary_statistic: '{summary_statistic}'. "
                 "Choose from: 'sum', 'mean', 'median', 'max', 'min', 'countoverthreshold'."
             )
 
-        # Rename variable
-        ds_yearly = ds_yearly.rename({covariate: new_covariate})
-
         # Add a single time value corresponding to the mid-year timestamp
-        ds_yearly = ds_yearly.expand_dims("time")  # Add time dimension
-        ds_yearly["time"] = [np.datetime64(f"{year}-07-01")]  # Assign timestamp
+        variable_ds_yearly = variable_ds_yearly.expand_dims("time")  # Add time dimension
+        variable_ds_yearly["time"] = [np.datetime64(f"{year}-07-01")]  # Assign timestamp
 
         # Replace NaNs back with nodata (-9999)
-        ds_yearly[new_covariate] = ds_yearly[new_covariate].fillna(nodata)
+        variable_ds_yearly["value"] = variable_ds_yearly["value"].fillna(nodata)
 
-        # Define encoding for compression
-        encoding = {
-            new_covariate: {"zlib": True, "complevel": 5, "dtype": "float32", "_FillValue": nodata},
-            "lon": {"dtype": "float32", "zlib": True, "complevel": 5},
-            "lat": {"dtype": "float32", "zlib": True, "complevel": 5},
-            "time": {"dtype": "int32", "units": "days since 1900-01-01", "zlib": True, "complevel": 5},  # Define time format
-        }
+        variable_ds_yearly.attrs["long_name"] = f"{adjustment_type} {variable} {shift_type} {shift} {summary_statistic}"
 
-        output_file = input_dir / f"{new_covariate}_{year}.nc"
-        touch(output_file, clobber=True, mode=0o775)
-        # Save the yearly summary NetCDF
-        ds_yearly.to_netcdf(output_file, format="NETCDF4", engine="netcdf4", encoding=encoding)
-        os.chmod(output_file, 0o775)  # Temporary
+        floodingdata.save_output(variable_ds_yearly, variable, scenario, model, year, variable_name = new_covariate)
 
-def stack_yearly_netcdf(model: str, scenario: str, variable: str, adjustment_num: int) -> None: 
+def stack_yearly_netcdf(model: str, scenario: str, variable: str, adjustment_num: int, model_root: str) -> None: 
     """
     Stacks yearly NetCDF files for a given model and scenario into a single NetCDF file.
     """
+    floodingdata = FloodingData(model_root)
+
     variable_dict = parse_yaml_dictionary(variable, adjustment_num)
     summary_statistic = variable_dict['summary_statistic']
     variable = variable_dict['variable']
@@ -159,31 +161,21 @@ def stack_yearly_netcdf(model: str, scenario: str, variable: str, adjustment_num
     years = np.array([int(f.stem.split("_")[-1]) for f in netcdf_files], dtype=np.int32)  # Convert to NumPy int32 array
 
     # Load datasets
-    ds_list = [xr.open_dataset(f) for f in netcdf_files]
+    variable_ds_list = [xr.open_dataset(f) for f in netcdf_files]
 
     # Concatenate along new 'time' dimension
-    ds_stacked = xr.concat(ds_list, dim="time")
-    ds_stacked = ds_stacked.assign_coords(time=("time", years))  # Set years as time
+    variable_ds_stacked = xr.concat(variable_ds_list, dim="time")
+    variable_ds_stacked = variable_ds_stacked.assign_coords(time=("time", years))  # Set years as time
 
-    # Define encoding (compress all variables)
-    encoding = {var: {"zlib": True, "complevel": 5, "dtype": "float32"} for var in ds_stacked.data_vars}
-    encoding.update({
-        "time": {"dtype": "int32"},  # Remove "units" from encoding
-        "lon": {"dtype": "float32", "zlib": True, "complevel": 5},
-        "lat": {"dtype": "float32", "zlib": True, "complevel": 5},
-    })
+    floodingdata.save_stacked_output(variable_ds_stacked, variable, scenario, model, variable_name = f"stacked_{new_covariate}")
 
-    output_file = input_dir / f"stacked_{new_covariate}.nc"
-    touch(output_file, clobber=True, mode=0o775)
 
-    # Save stacked NetCDF
-    ds_stacked.to_netcdf(output_file, format="NETCDF4", encoding=encoding)
-    os.chmod(output_file, 0o775)  # Temporary
-
-def clean_up_yearly_netcdf_files(model: str, scenario: str, variable: str, adjustment_num: int) -> None:
+def clean_up_yearly_netcdf_files(model: str, scenario: str, variable: str, adjustment_num: int, model_root: str) -> None:
     """
     Removes yearly summary NetCDF files for a given model and scenario.
     """
+    floodingdata = FloodingData(model_root)
+
     variable_dict = parse_yaml_dictionary(variable, adjustment_num)
     summary_statistic = variable_dict['summary_statistic']
     variable = variable_dict['variable']
@@ -200,11 +192,12 @@ def clean_up_yearly_netcdf_files(model: str, scenario: str, variable: str, adjus
         f.unlink()
         print(f"❌ Removed: {f}")
 
-def main(model: str, scenario: str, variant: str, variable: str, adjustment_num: int) -> None:
+def main(model: str, scenario: str, variant: str, variable: str, adjustment_num: int, model_root: str) -> None:
     """Runs individual steps in sequence."""
-    create_yearly_summary_netcdf(model, scenario, variant, variable, adjustment_num)
-    stack_yearly_netcdf(model, scenario, variable, adjustment_num)
-    clean_up_yearly_netcdf_files(model, scenario, variable, adjustment_num)
+
+    create_yearly_summary_netcdf(model, scenario, variant, variable, adjustment_num, model_root)
+    stack_yearly_netcdf(model, scenario, variable, adjustment_num, model_root)
+    clean_up_yearly_netcdf_files(model, scenario, variable, adjustment_num, model_root)
 
 # Run main function with parsed arguments
-main(args.model, args.scenario, args.variant, args.variable, args.adjustment_num)
+main(args.model, args.scenario, args.variant, args.variable, args.adjustment_num, args.model_root)
