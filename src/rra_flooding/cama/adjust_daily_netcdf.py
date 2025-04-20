@@ -47,7 +47,17 @@ def parse_yaml_dictionary(variable: str, adjustment_num: str) -> dict:
 
     if entry['adjustment']['type'] == "shifted":
         result["shift_type"] = entry['adjustment'].get("shift_type")
-        result["shift"] = entry['adjustment'].get("shift")
+        if entry['adjustment'].get("shift_type") == "percentile":
+            result["shift"] = entry['adjustment'].get("shift")
+            result["adjusted_variable"] = f"{variable}_{entry['adjustment']['type']}{entry['adjustment']['shift']}"
+        elif entry['adjustment'].get("shift_type") == "min":
+            result["adjusted_variable"] = f"{variable}_{entry['adjustment']['type']}min"
+        else:
+            raise ValueError(f"Unknown shift type: {entry['adjustment']['shift_type']}")
+    elif entry['adjustment']['type'] == "unadjusted":
+        result["adjusted_variable"] = f"{variable}_unadjusted"
+    else:
+        raise ValueError(f"Unknown adjustment type: {entry['adjustment']['type']}")
 
     return result
     
@@ -58,13 +68,8 @@ def standardize_flooding_fraction(model: str, scenario: str, variant: str,  year
     # parse the variable dictionary
     variable = variable_dict["variable"]
     adjustment_type = variable_dict["adjustment_type"]
-
-    if adjustment_type == "shifted":
-        shift_type = variable_dict["shift_type"]
-        shift = variable_dict["shift"]
-        new_variable = f"{variable}_{adjustment_type}{shift}"
-    else:
-        new_variable = f"{variable}_{adjustment_type}"
+    adjusted_variable = variable_dict["adjusted_variable"]    
+    
 
     input_file_path = floodingdata.output_path(variable, scenario, model, year, variable_name = "base")
     if not input_file_path.exists():
@@ -81,48 +86,58 @@ def standardize_flooding_fraction(model: str, scenario: str, variant: str,  year
         # rename the variable to the new name
         variable_ds.attrs["long_name"] = f"Unadjusted {variable}"
 
-        floodingdata.save_output(variable_ds, variable, scenario, model, year, variable_name = new_variable)
+        floodingdata.save_output(variable_ds, variable, scenario, model, year, variable_name = adjusted_variable)
         return
     
-    # Create a copy for standardization
-    variable_da_adjusted = variable_da.copy()
-    # Change the name of the variable in da_weighted
-    
-    # Get dimensions
-    days, height, width = variable_da.shape
-    
-    # Process each pixel (lat, lon) separately to handle all-NaN cases
-    for y in range(height):
-        for x in range(width):
-            pixel_values = variable_da[:, y, x]
-            # Skip if all values are NaN
-            valid_values = pixel_values[~np.isnan(pixel_values)]
-            if len(valid_values) > 0:
-                if shift_type == "percentile":
-                    # Step 1: compute the percentile value
-                    shift_value = np.percentile(valid_values, shift * 100)
-                elif shift_type == "min":
-                    # Step 1: compute the minimum value
-                    shift_value = np.min(valid_values)
-                else:
-                    raise ValueError(f"Unknown shift type: {shift_type}")
-                
-                # Step 2: subtract the shift
-                shifted_values = pixel_values - shift_value
+    elif adjustment_type == "shifted":
+        shift_type = variable_dict["shift_type"]         
 
-                # Step 3: # Replace negative values with 0
-                shifted_values[shifted_values < 0] = 0
+        # Create a copy for standardization
+        variable_da_adjusted = variable_da.copy()
+        # Change the name of the variable in da_weighted
+        
+        # Get dimensions
+        days, height, width = variable_da.shape
+        
+        # Process each pixel (lat, lon) separately to handle all-NaN cases
+        for y in range(height):
+            for x in range(width):
+                pixel_values = variable_da[:, y, x]
+                # Skip if all values are NaN
+                valid_values = pixel_values[~np.isnan(pixel_values)]
+                if len(valid_values) > 0:
+                    if shift_type == "percentile":
+                        # Step 1: compute the percentile value
+                        shift = variable_dict["shift"]
+                        shift_value = np.percentile(valid_values, shift * 100)
+                    elif shift_type == "min":
+                        # Step 1: compute the minimum value
+                        shift_value = np.min(valid_values)
+                    else:
+                        raise ValueError(f"Unknown shift type: {shift_type}")
+                    
+                    # Step 2: subtract the shift
+                    shifted_values = pixel_values - shift_value
 
-                # Store result
-                variable_da_adjusted[:, y, x] = shifted_values
+                    # Step 3: # Replace negative values with 0
+                    shifted_values[shifted_values < 0] = 0
 
-    # Save the standardized flooding fraction as a new NetCDF file
-    variable_ds["value"] = (('time', 'lat', 'lon'), variable_da_adjusted)
-    variable_ds.attrs["long_name"] = f"{adjustment_type} {variable} {shift_type} {shift}"
+                    # Store result
+                    variable_da_adjusted[:, y, x] = shifted_values
 
-    floodingdata.save_output(variable_ds, variable, scenario, model, year, variable_name = new_variable)
+        # Save the standardized flooding fraction as a new NetCDF file
+        variable_ds["value"] = (('time', 'lat', 'lon'), variable_da_adjusted)
+        # Update the attributes
+        if adjustment_type == "shifted":
+            if shift_type == "percentile":
+                variable_ds.attrs["long_name"] = f"{adjustment_type} {variable} {shift_type} {shift}"
+            elif shift_type == "min":
+                variable_ds.attrs["long_name"] = f"{adjustment_type} {variable} {shift_type}"
+
+        floodingdata.save_output(variable_ds, variable, scenario, model, year, variable_name = adjusted_variable)
+    else:
+        raise ValueError(f"Unknown adjustment type: {adjustment_type}")
 
 if __name__ == "__main__":
     # Call the function with the parsed arguments
     standardize_flooding_fraction(args.model, args.scenario, args.variant, args.year, args.variable, args.adjustment_num, args.model_root)
-

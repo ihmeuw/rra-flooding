@@ -9,7 +9,6 @@ VARIABLE_DICT:
     - adjustment:
         type: "shifted"
         shift_type: "min"
-        shift: 0.3
       summary_statistic:
         type: "sum"
     - adjustment:

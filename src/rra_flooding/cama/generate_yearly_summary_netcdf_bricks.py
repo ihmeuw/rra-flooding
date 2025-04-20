@@ -51,8 +51,15 @@ def parse_yaml_dictionary(variable: str, adjustment_num: str) -> dict:
 
     if entry['adjustment']['type'] == "shifted":
         result["shift_type"] = entry['adjustment'].get("shift_type")
-        result["shift"] = entry['adjustment'].get("shift")
-        result["covariate"] = f"{variable}_{entry['adjustment']['type']}{entry['adjustment']['shift']}"
+        if entry['adjustment'].get("shift_type") == "percentile":
+            result["shift"] = entry['adjustment'].get("shift")
+            result["covariate"] = f"{variable}_{entry['adjustment']['type']}{entry['adjustment']['shift']}_{entry['summary_statistic']['type']}"
+        elif entry['adjustment'].get("shift_type") == "min":            
+            result["covariate"] = f"{variable}_{entry['adjustment']['type']}_{entry['summary_statistic']['type']}"
+        else:
+            raise ValueError(f"Unknown shift type: {entry['adjustment']['shift_type']}")
+
+
 
     
 
@@ -70,7 +77,8 @@ def create_yearly_summary_netcdf(model: str, scenario: str, variant: str, variab
 
     if adjustment_type == "shifted":
         shift_type = variable_dict["shift_type"]
-        shift = variable_dict["shift"]
+        if shift_type == "percentile":
+            shift = variable_dict["shift"]
         
 
     if summary_statistic == "countoverthreshold":
@@ -130,7 +138,18 @@ def create_yearly_summary_netcdf(model: str, scenario: str, variant: str, variab
         # Replace NaNs back with nodata (-9999)
         variable_ds_yearly["value"] = variable_ds_yearly["value"].fillna(nodata)
 
-        variable_ds_yearly.attrs["long_name"] = f"{adjustment_type} {variable} {shift_type} {shift} {summary_statistic}"
+        # Set attributes
+        if adjustment_type == "shifted":
+            if shift_type == "percentile":
+                variable_ds_yearly.attrs["long_name"] = f"{adjustment_type} {variable} {shift_type} {shift} {summary_statistic}"
+            elif shift_type == "min":
+                variable_ds_yearly.attrs["long_name"] = f"{adjustment_type} {variable} {shift_type} {summary_statistic}"
+            else: 
+                raise ValueError(f"Unknown shift type: {shift_type}")
+        elif adjustment_type == "unadjusted":
+            variable_ds_yearly.attrs["long_name"] = f"Unadjusted {variable} {summary_statistic}"
+        else:
+            raise ValueError(f"Unknown adjustment type: {adjustment_type}")
 
         floodingdata.save_output(variable_ds_yearly, variable, scenario, model, year, variable_name = new_covariate)
 

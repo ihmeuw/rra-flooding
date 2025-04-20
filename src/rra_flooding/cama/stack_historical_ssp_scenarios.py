@@ -31,7 +31,7 @@ def parse_yaml_dictionary(variable: str, adjustment_num: str) -> dict:
     with open(REPO_ROOT / 'src' / 'rra_flooding'  / 'VARIABLE_DICT.yaml', 'r') as f:
         yaml_data = yaml.safe_load(f)
 
-    # Extract variable-specific config
+        # Extract variable-specific config
     variable_dict = yaml_data['VARIABLE_DICT']
     variable_list = variable_dict.get(variable, [])
     if adjustment_num >= len(variable_list):
@@ -42,21 +42,24 @@ def parse_yaml_dictionary(variable: str, adjustment_num: str) -> dict:
     # Build the return dict dynamically
     result = {
         "variable": variable,
-        "summary_statistic": entry['summary_statistic']['type'],
-        "adjustment_type": entry['adjustment']['type'],
-        "covariate": f"{variable}_{entry['adjustment']['type']}"
+        "adjustment_type": entry['adjustment']['type']
     }
-
-    if entry['summary_statistic']['type'] == "countoverthreshold":
-        result['threshold'] = entry['summary_statistic'].get("threshold")
 
     if entry['adjustment']['type'] == "shifted":
         result["shift_type"] = entry['adjustment'].get("shift_type")
-        result["shift"] = entry['adjustment'].get("shift")
-        result["covariate"] = f"{variable}_{entry['adjustment']['type']}{entry['adjustment']['shift']}_{entry['summary_statistic']['type']}"
+        if entry['adjustment'].get("shift_type") == "percentile":
+            result["shift"] = entry['adjustment'].get("shift")
+            result["adjusted_variable"] = f"{variable}_{entry['adjustment']['type']}{entry['adjustment']['shift']}"
+        elif entry['adjustment'].get("shift_type") == "min":
+            result["adjusted_variable"] = f"{variable}_{entry['adjustment']['type']}min"
+        else:
+            raise ValueError(f"Unknown shift type: {entry['adjustment']['shift_type']}")
+    elif entry['adjustment']['type'] == "unadjusted":
+        result["adjusted_variable"] = f"{variable}_unadjusted"
+    else:
+        raise ValueError(f"Unknown adjustment type: {entry['adjustment']['type']}")
 
     return result
-
 
 def stack_historical_with_ssp(model: str, variable: str, adjustment_num: int) -> None:
     """
@@ -64,9 +67,9 @@ def stack_historical_with_ssp(model: str, variable: str, adjustment_num: int) ->
     """
     variable_dict = parse_yaml_dictionary(variable, adjustment_num)
     variable = variable_dict['variable']
-    covariate = variable_dict['covariate']
+    adjusted_variable = variable_dict['adjusted_variable']
 
-    historical_path = INPUT_ROOT / variable /"historical" / model / f"stacked_{covariate}.nc"
+    historical_path = INPUT_ROOT / variable /"historical" / model / f"stacked_{adjusted_variable}.nc"
 
     # Check if historical file exists
     if not historical_path.exists():
@@ -78,7 +81,7 @@ def stack_historical_with_ssp(model: str, variable: str, adjustment_num: int) ->
 
     # Define SSP scenarios
     ssp_scenarios = ["ssp126", "ssp245", "ssp585"]
-    ssp_files = [INPUT_ROOT / variable / scenario / model / f"stacked_{covariate}.nc" for scenario in ssp_scenarios]
+    ssp_files = [INPUT_ROOT / variable / scenario / model / f"stacked_{adjusted_variable}.nc" for scenario in ssp_scenarios]
 
     # Filter only existing SSP scenario files
     valid_ssp_files = [(scenario, file) for scenario, file in zip(ssp_scenarios, ssp_files) if file.exists()]
@@ -97,7 +100,7 @@ def stack_historical_with_ssp(model: str, variable: str, adjustment_num: int) ->
         ds_combined = xr.concat([ds_historical, ds_ssp], dim="time")
 
         # Define output path
-        output_dir = OUTPUT_ROOT / scenario / covariate
+        output_dir = OUTPUT_ROOT / scenario / adjusted_variable
         mkdir(output_dir, parents=True, exist_ok=True)
         output_file = output_dir / f"{model}.nc"
         touch(output_file, clobber=True, mode=0o775)
@@ -122,12 +125,12 @@ def clean_up_stacked_ssp_files(model: str, scenario: str, variable: str, adjustm
     variable_dict = parse_yaml_dictionary(variable, adjustment_num)
     summary_statistic = variable_dict['summary_statistic']
     variable = variable_dict['variable']
-    covariate = variable_dict['covariate']
+    adjusted_variable = variable_dict['adjusted_variable']
 
     input_dir = INPUT_ROOT / variable / scenario / model
 
     # Get all yearly NetCDF files
-    netcdf_files = input_dir.glob(f"stacked_{covariate}.nc")
+    netcdf_files = input_dir.glob(f"stacked_{adjusted_variable}.nc")
 
     for f in netcdf_files:
         f.unlink()
