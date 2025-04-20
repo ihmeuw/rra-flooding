@@ -3,12 +3,13 @@ import uuid
 from jobmon.client.tool import Tool  # type: ignore
 from pathlib import Path
 import geopandas as gpd  # type: ignore
-import yaml
+from rra_flooding import constants as rfc
+from rra_flooding.helper_functions import load_yaml_dictionary
 
 # Script directory
-SCRIPT_ROOT = Path.cwd()
-REPO_ROOT = Path(str(SCRIPT_ROOT).split("rra-flooding")[0] + "rra-flooding")
-print(f"Script root: {SCRIPT_ROOT}")
+SCRIPT_ROOT = rfc.REPO_ROOT / "rra-flooding" / "src" / "rra_flooding" / "aggregate"
+BASE_PATH = rfc.MODEL_ROOT / "output"
+YAML_PATH = rfc.REPO_ROOT / "rra-flooding" / "src" / "rra_flooding" / "VARIABLE_DICT.yaml"
 
 
 modeling_frame = gpd.read_parquet("/mnt/team/rapidresponse/pub/population-model/ihmepop_results/2025_03_22/modeling_frame.parquet")
@@ -20,13 +21,8 @@ hierarchies = ["lsae_1209", "gbd_2021"]
 models = ["ACCESS-CM2", "EC-Earth3", "INM-CM5-0", "MIROC6", "IPSL-CM6A-LR", "NorESM2-MM", "MRI-ESM2-0"]#, "GFDL-CM4"]
 # Was getting this error only for *every* non-126 GFDl run: Some parent locations are not in the results: [63156 63389 63390 ... 44847 44848 61467]
 scenarios = ["ssp126", "ssp245", "ssp585"]
-variants = ["r1i1p1f1"]
 
-# read in yaml as dict
-with open(REPO_ROOT / 'src' / 'rra_flooding'  / 'VARIABLE_DICT.yaml', 'r') as f:
-    yaml_data = yaml.safe_load(f)
-
-VARIABLE_DICT = yaml_data['VARIABLE_DICT']
+VARIABLE_DICT = load_yaml_dictionary(YAML_PATH)
 
 
 # Jobmon setup
@@ -158,19 +154,18 @@ workflow.add_tasks(tasks + list(aggregation_tasks.values()))
 # ✅ Set dependencies AFTER tasks are in the workflow
 for hierarchy in hierarchies:
     for scenario in scenarios:
-        for variant in variants:
-            agg_key = (variable, i, hierarchy, scenario)
-            if agg_key in aggregation_tasks:
-                agg_task = aggregation_tasks[agg_key]
-                
-                # Get all pixel tasks that match the same hierarchy, scenario, and variant
-                pixel_tasks = workflow.get_tasks_by_node_args(
-                    "hierarchy_generation", variable = variable, adjustment_num=i, hierarchy=hierarchy, scenario=scenario
-                )
-                
-                # Add dependency: aggregation should wait for all matching pixel tasks
-                for pixel_task in pixel_tasks:
-                    agg_task.add_upstream(pixel_task)
+        agg_key = (variable, i, hierarchy, scenario)
+        if agg_key in aggregation_tasks:
+            agg_task = aggregation_tasks[agg_key]
+            
+            # Get all pixel tasks that match the same hierarchy, scenario, and variant
+            pixel_tasks = workflow.get_tasks_by_node_args(
+                "hierarchy_generation", variable = variable, adjustment_num=i, hierarchy=hierarchy, scenario=scenario
+            )
+            
+            # Add dependency: aggregation should wait for all matching pixel tasks
+            for pixel_task in pixel_tasks:
+                agg_task.add_upstream(pixel_task)
 
 print("✅ Tasks successfully added to workflow.")
 print(f"  - First-level tasks: {len(tasks)}")

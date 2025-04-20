@@ -1,6 +1,9 @@
 import pandas as pd # type: ignore
 from pathlib import Path
 import numpy as np # type: ignore
+from rra_flooding.data import FloodingData
+from rra_flooding import constants as rfc
+from rra_flooding.helper_functions import parse_yaml_dictionary
 import argparse
 import yaml # type: ignore
 
@@ -24,44 +27,8 @@ scenario = args.scenario
 variant = args.variant
 
 
-SCRIPT_ROOT = Path.cwd()
-REPO_ROOT = Path(str(SCRIPT_ROOT).split("rra-flooding")[0] + "rra-flooding")
-
-def parse_yaml_dictionary(variable: str, adjustment_num: str) -> dict:
-    # Read YAML
-    with open(REPO_ROOT / 'src' / 'rra_flooding'  / 'VARIABLE_DICT.yaml', 'r') as f:
-        yaml_data = yaml.safe_load(f)
-
-    # Extract variable-specific config
-    variable_dict = yaml_data['VARIABLE_DICT']
-    variable_list = variable_dict.get(variable, [])
-    if adjustment_num >= len(variable_list):
-        raise IndexError(f"Adjustment number {adjustment_num} out of range for variable '{variable}'")
-
-    entry = variable_list[adjustment_num]
-
-    # Build the return dict dynamically
-    result = {
-        "variable": variable,
-        "summary_statistic": entry['summary_statistic']['type'],
-        "adjustment_type": entry['adjustment']['type'],
-        "covariate": f"{variable}_{entry['adjustment']['type']}"
-    }
-
-    if entry['summary_statistic']['type'] == "countoverthreshold":
-        result['threshold'] = entry['summary_statistic'].get("threshold")
-
-    if entry['adjustment']['type'] == "shifted":
-        result["shift_type"] = entry['adjustment'].get("shift_type")
-        result["shift"] = entry['adjustment'].get("shift")
-        result["covariate"] = f"{variable}_{entry['adjustment']['type']}{entry['adjustment']['shift']}_{entry['summary_statistic']['type']}"
-
-    return result
-
 variable_dict = parse_yaml_dictionary(variable, adjustment_num)
-variable = variable_dict['variable']
-covariate = variable_dict['covariate']
-OUTCOME = covariate  # The variable to be stacked
+summary_variable = variable_dict['summary_variable']
 
 def create_mean_results(hierarchy: str, scenario: str, variant: str) -> None:
     root = Path("/mnt/team/rapidresponse/pub/flooding/results/output/") / hierarchy
@@ -74,7 +41,7 @@ def create_mean_results(hierarchy: str, scenario: str, variant: str) -> None:
     df_list = []
 
     for model in models:
-        file_name = f"{covariate}_{scenario}_{model}_{variant}.parquet"
+        file_name = f"{summary_variable}_{scenario}_{model}_{variant}.parquet"
         file_path = root / file_name
         if not file_path.exists():
             continue 
@@ -97,7 +64,7 @@ def create_mean_results(hierarchy: str, scenario: str, variant: str) -> None:
     }).reset_index()
 
     # Save the aggregated mean results
-    output_file = root / f"{covariate}_{scenario}_mean_{variant}.parquet"
+    output_file = root / f"{summary_variable}_{scenario}_mean_{variant}.parquet"
     combined_df.to_parquet(output_file, index=False)
     # change file permissions to 775
     output_file.chmod(0o775)

@@ -5,6 +5,9 @@ import geopandas as gpd # type: ignore
 from rra_tools.shell_tools import mkdir # type: ignore
 import numpy as np # type: ignore
 import argparse
+from rra_flooding.data import FloodingData
+from rra_flooding import constants as rfc
+from rra_flooding.helper_functions import parse_yaml_dictionary
 import yaml
 
 parser = argparse.ArgumentParser(description="Run James code")
@@ -28,45 +31,8 @@ scenario = args.scenario
 model = args.model
 variant = args.variant
 
-
-SCRIPT_ROOT = Path.cwd()
-REPO_ROOT = Path(str(SCRIPT_ROOT).split("rra-flooding")[0] + "rra-flooding")
-
-def parse_yaml_dictionary(variable: str, adjustment_num: str) -> dict:
-    # Read YAML
-    with open(REPO_ROOT / 'src' / 'rra_flooding'  / 'VARIABLE_DICT.yaml', 'r') as f:
-        yaml_data = yaml.safe_load(f)
-
-    # Extract variable-specific config
-    variable_dict = yaml_data['VARIABLE_DICT']
-    variable_list = variable_dict.get(variable, [])
-    if adjustment_num >= len(variable_list):
-        raise IndexError(f"Adjustment number {adjustment_num} out of range for variable '{variable}'")
-
-    entry = variable_list[adjustment_num]
-
-    # Build the return dict dynamically
-    result = {
-        "variable": variable,
-        "summary_statistic": entry['summary_statistic']['type'],
-        "adjustment_type": entry['adjustment']['type'],
-        "covariate": f"{variable}_{entry['adjustment']['type']}"
-    }
-
-    if entry['summary_statistic']['type'] == "countoverthreshold":
-        result['threshold'] = entry['summary_statistic'].get("threshold")
-
-    if entry['adjustment']['type'] == "shifted":
-        result["shift_type"] = entry['adjustment'].get("shift_type")
-        result["shift"] = entry['adjustment'].get("shift")
-        result["covariate"] = f"{variable}_{entry['adjustment']['type']}{entry['adjustment']['shift']}_{entry['summary_statistic']['type']}"
-
-    return result
-
 variable_dict = parse_yaml_dictionary(variable, adjustment_num)
-variable = variable_dict['variable']
-covariate = variable_dict['covariate']
-OUTCOME = covariate  # The variable to be stacked
+summary_variable = variable_dict['summary_variable']
 
 HIERARCHY_MAP = {
     "gbd_2021": [
@@ -163,7 +129,7 @@ def load_subset_hierarchy(subset_hierarchy: str) -> pd.DataFrame:
     path = root / "gbd-inputs" / f"hierarchy_{subset_hierarchy}.parquet"
     return pd.read_parquet(path)
 
-def post_process(df: pd.DataFrame, pop_df: pd.DataFrame) -> pd.DataFrame: # Fix this for other covariate/variable/etc
+def post_process(df: pd.DataFrame, pop_df: pd.DataFrame) -> pd.DataFrame: # Fix this for other summary_variable/variable/etc
     """
     Rename 000 to people_flood_days_per_capita
     Merge in population
@@ -198,7 +164,7 @@ def hierarchy_main(
     model: str,
     variant: str,
 ) -> None:
-    measure = covariate
+    measure = summary_variable
     root = Path("/mnt/team/rapidresponse/pub/flooding/results/output/")
 
     # Load hierarchy data for aggregation
@@ -217,7 +183,7 @@ def hierarchy_main(
     for draw in DRAWS:
         draw_results = []
         for block_key in block_keys:
-            draw_df = pd.read_parquet(root / "raw-results" / hierarchy / model / block_key / covariate / f"{draw}.parquet")
+            draw_df = pd.read_parquet(root / "raw-results" / hierarchy / model / block_key / summary_variable / f"{draw}.parquet")
             # filter by scenario
             draw_df = draw_df[draw_df["scenario"] == scenario]
             # drop scenario and measure columns
@@ -272,7 +238,7 @@ def hierarchy_main(
         subset_results_path = (
             root / subset_hierarchy 
         )
-        filename = f"{covariate}_{scenario}_{model}_{variant}.parquet" 
+        filename = f"{summary_variable}_{scenario}_{model}_{variant}.parquet" 
         mkdir(subset_results_path, parents=True, exist_ok=True)
         subset_results.to_parquet(
             subset_results_path / filename,
@@ -282,7 +248,7 @@ def hierarchy_main(
         final_path.chmod(0o775)
 
         save_population = (
-            measure == covariate and scenario == "ssp245" and draw == "000" and scenario == "ssp245" 
+            measure == summary_variable and scenario == "ssp245" and draw == "000" and scenario == "ssp245" 
         )
         if save_population:
             subset_pop = pop_df[pop_df["location_id"].isin(subset_location_ids)]
