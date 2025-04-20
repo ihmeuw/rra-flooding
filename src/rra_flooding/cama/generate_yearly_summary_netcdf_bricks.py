@@ -6,6 +6,7 @@ from pathlib import Path
 from rra_tools.shell_tools import mkdir, touch # type: ignore
 from rra_flooding.data import FloodingData
 from rra_flooding import constants as rfc
+from rra_flooding.helper_functions import parse_yaml_dictionary, load_yaml_dictionary
 import argparse
 import yaml # type: ignore
 
@@ -26,7 +27,7 @@ def create_yearly_summary_netcdf(model: str, scenario: str, variant: str, variab
     """Creates yearly summary NetCDF files by summing daily flood fraction values while adding a time dimension."""
     floodingdata = FloodingData(model_root)
 
-    variable_dict = floodingdata.parse_yaml_dictionary(variable, adjustment_num)
+    variable_dict = parse_yaml_dictionary(variable, adjustment_num)
     adjusted_variable = variable_dict['adjusted_variable']
     summary_statistic = variable_dict['summary_statistic']
     summary_variable = variable_dict['summary_variable']
@@ -96,7 +97,7 @@ def stack_yearly_netcdf(model: str, scenario: str, variable: str, adjustment_num
     """
     floodingdata = FloodingData(model_root)
 
-    variable_dict = floodingdata.parse_yaml_dictionary(variable, adjustment_num)
+    variable_dict = parse_yaml_dictionary(variable, adjustment_num)
     summary_variable = variable_dict['summary_variable']
 
     root = Path(f"/mnt/team/rapidresponse/pub/flooding/output/{variable}/")
@@ -129,7 +130,7 @@ def clean_up_yearly_netcdf_files(model: str, scenario: str, variable: str, adjus
     """
     floodingdata = FloodingData(model_root)
 
-    variable_dict = floodingdata.parse_yaml_dictionary(variable, adjustment_num)
+    variable_dict = parse_yaml_dictionary(variable, adjustment_num)
     summary_variable = variable_dict['summary_variable']
 
     root = Path(f"/mnt/team/rapidresponse/pub/flooding/output/{variable}/")

@@ -4,8 +4,8 @@ import pandas as pd # type: ignore
 import xarray as xr # type: ignore
 from rra_tools.shell_tools import mkdir, touch # type: ignore
 from pathlib import Path
-from rra_flooding.data import FloodingData
 from rra_flooding import constants as rfc
+from rra_flooding.helper_functions import parse_yaml_dictionary
 import argparse
 import yaml
 
@@ -16,7 +16,6 @@ parser = argparse.ArgumentParser(description="Generate daily netcdf bricks for e
 parser.add_argument("--model", type=str, required=True, help="Climate model name")
 parser.add_argument("--variable", type=str, required=True, help="Variable to process")
 parser.add_argument("--adjustment_num", type=int, required=True, help="Adjustment number")
-parser.add_argument("--model_root", type=str, default=rfc.MODEL_ROOT, help="Root of the model directory")
 
 # Parse arguments
 args = parser.parse_args()
@@ -26,13 +25,11 @@ INPUT_ROOT = Path("/mnt/team/rapidresponse/pub/flooding/output/")
 OUTPUT_ROOT = Path("/mnt/team/rapidresponse/pub/flooding/results/annual/raw")
 mkdir(OUTPUT_ROOT, parents=True, exist_ok=True)
 
-def stack_historical_with_ssp(model: str, variable: str, adjustment_num: int, model_root: str) -> None:
+def stack_historical_with_ssp(model: str, variable: str, adjustment_num: int) -> None:
     """
     Stacks the historical NetCDF brick with each SSP scenario NetCDF brick for a given model.
     """
-    floodingdata = FloodingData(model_root)
-
-    variable_dict = floodingdata.parse_yaml_dictionary(variable, adjustment_num)
+    variable_dict = parse_yaml_dictionary(variable, adjustment_num)
     summary_variable = variable_dict['summary_variable']
 
     historical_path = INPUT_ROOT / variable /"historical" / model / f"stacked_{summary_variable}.nc"
@@ -84,13 +81,11 @@ def stack_historical_with_ssp(model: str, variable: str, adjustment_num: int, mo
         os.chmod(output_file, 0o775) # temporary
 
 
-def clean_up_stacked_ssp_files(model: str, scenario: str, variable: str, adjustment_num: int, model_root: str) -> None:
+def clean_up_stacked_ssp_files(model: str, scenario: str, variable: str, adjustment_num: int) -> None:
     """
     Removes yearly summary NetCDF files for a given model and scenario.
     """
-    floodingdata = FloodingData(model_root)
-
-    variable_dict = floodingdata.parse_yaml_dictionary(variable, adjustment_num)
+    variable_dict = parse_yaml_dictionary(variable, adjustment_num)
     summary_variable = variable_dict['summary_variable']
 
     input_dir = INPUT_ROOT / variable / scenario / model
@@ -102,10 +97,10 @@ def clean_up_stacked_ssp_files(model: str, scenario: str, variable: str, adjustm
         f.unlink()
         print(f"❌ Removed: {f}")
 
-def main(model: str, variable: str, adjustment_num: int, model_root:str) -> None:
+def main(model: str, variable: str, adjustment_num: int) -> None:
     """Runs individual steps in sequence."""
-    stack_historical_with_ssp(model, variable, adjustment_num, model_root)
-    # clean_up_stacked_ssp_files(model, scenario, variable, adjustment_num, model_root)
+    stack_historical_with_ssp(model, variable, adjustment_num)
+    # clean_up_stacked_ssp_files(model, scenario, variable, adjustment_num)
 
 # Run main function with parsed arguments
-main(args.model, args.variable, args.adjustment_num, args.model_root)
+main(args.model, args.variable, args.adjustment_num)

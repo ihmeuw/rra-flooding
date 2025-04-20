@@ -2,22 +2,20 @@ import getpass
 import uuid
 from jobmon.client.tool import Tool # type: ignore
 from pathlib import Path
+from rra_flooding.data import FloodingData
+from rra_flooding import constants as rfc
+from rra_flooding.helper_functions import load_yaml_dictionary
 import yaml
 
 # Script directory
-SCRIPT_ROOT = Path.cwd()
-REPO_ROOT = Path(str(SCRIPT_ROOT).split("rra-flooding")[0] + "rra-flooding")
-print(f"Script root: {SCRIPT_ROOT}")
+SCRIPT_ROOT = rfc.REPO_ROOT / "rra-flooding" / "src" / "rra_flooding" / "cama"
+BASE_PATH = rfc.MODEL_ROOT / "output"
+YAML_PATH = rfc.REPO_ROOT / "rra-flooding" / "src" / "rra_flooding" / "VARIABLE_DICT.yaml"
 
-BASE_PATH = Path('/mnt/team/rapidresponse/pub/flooding/output/')
 MODELS = ["ACCESS-CM2", "EC-Earth3", "INM-CM5-0", "MIROC6", "IPSL-CM6A-LR", "NorESM2-MM", "GFDL-CM4", "MRI-ESM2-0"]
 SCENARIOS = ["historical", "ssp126", "ssp245", "ssp585"]
 
-# read in yaml as dict
-with open(REPO_ROOT / 'src' / 'rra_flooding'  / 'VARIABLE_DICT.yaml', 'r') as f:
-    yaml_data = yaml.safe_load(f)
-
-VARIABLE_DICT = yaml_data['VARIABLE_DICT']
+VARIABLE_DICT = load_yaml_dictionary(YAML_PATH)
 
 # Jobmon setup
 user = getpass.getuser()

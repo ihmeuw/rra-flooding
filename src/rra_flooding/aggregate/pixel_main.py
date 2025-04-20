@@ -16,6 +16,7 @@ import itertools
 from rra_tools.shell_tools import mkdir # type: ignore
 from rra_flooding.data import FloodingData
 from rra_flooding import constants as rfc
+from rra_flooding.helper_functions import parse_yaml_dictionary
 import argparse
 import yaml
 
@@ -39,8 +40,8 @@ variable = args.variable
 adjustment_num = args.adjustment_num
 model_root = args.model_root
 
-floodingdata = FloodingData(model_root)
-variable_dict = floodingdata.parse_yaml_dictionary(variable, adjustment_num)
+
+variable_dict = parse_yaml_dictionary(variable, adjustment_num)
 summary_variable = variable_dict['summary_variable']
 
 # Climate measures to calculate
