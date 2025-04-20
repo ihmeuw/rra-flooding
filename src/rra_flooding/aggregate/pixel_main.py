@@ -14,6 +14,8 @@ from shapely import MultiPolygon, Polygon # type: ignore
 from typing import Literal, NamedTuple
 import itertools
 from rra_tools.shell_tools import mkdir # type: ignore
+from rra_flooding.data import FloodingData
+from rra_flooding import constants as rfc
 import argparse
 import yaml
 
@@ -25,6 +27,7 @@ parser.add_argument("--hiearchy", type=str, required=True, help="Hiearchy")
 parser.add_argument("--block_key", type=str, required=True, help="Block Key")
 parser.add_argument("--variable", type=str, required=True, help="Variable to process")
 parser.add_argument("--adjustment_num", type=int, required=True, help="Adjustment number")
+parser.add_argument("--model_root", type=str, default=rfc.MODEL_ROOT, help="Root of the model directory")
 
 # Parse arguments
 args = parser.parse_args()
@@ -34,46 +37,11 @@ block_key = args.block_key
 model = args.model
 variable = args.variable
 adjustment_num = args.adjustment_num
+model_root = args.model_root
 
-
-SCRIPT_ROOT = Path.cwd()
-REPO_ROOT = Path(str(SCRIPT_ROOT).split("rra-flooding")[0] + "rra-flooding")
-
-def parse_yaml_dictionary(variable: str, adjustment_num: str) -> dict:
-    # Read YAML
-    with open(REPO_ROOT / 'src' / 'rra_flooding'  / 'VARIABLE_DICT.yaml', 'r') as f:
-        yaml_data = yaml.safe_load(f)
-
-    # Extract variable-specific config
-    variable_dict = yaml_data['VARIABLE_DICT']
-    variable_list = variable_dict.get(variable, [])
-    if adjustment_num >= len(variable_list):
-        raise IndexError(f"Adjustment number {adjustment_num} out of range for variable '{variable}'")
-
-    entry = variable_list[adjustment_num]
-
-    # Build the return dict dynamically
-    result = {
-        "variable": variable,
-        "summary_statistic": entry['summary_statistic']['type'],
-        "adjustment_type": entry['adjustment']['type'],
-        "covariate": f"{variable}_{entry['adjustment']['type']}"
-    }
-
-    if entry['summary_statistic']['type'] == "countoverthreshold":
-        result['threshold'] = entry['summary_statistic'].get("threshold")
-
-    if entry['adjustment']['type'] == "shifted":
-        result["shift_type"] = entry['adjustment'].get("shift_type")
-        result["shift"] = entry['adjustment'].get("shift")
-        result["covariate"] = f"{variable}_{entry['adjustment']['type']}{entry['adjustment']['shift']}_{entry['summary_statistic']['type']}"
-
-    return result
-
-variable_dict = parse_yaml_dictionary(variable, adjustment_num)
-variable = variable_dict['variable']
-covariate = variable_dict['covariate']
-OUTCOME = covariate  # The variable to be stacked
+floodingdata = FloodingData(model_root)
+variable_dict = floodingdata.parse_yaml_dictionary(variable, adjustment_num)
+summary_variable = variable_dict['summary_variable']
 
 # Climate measures to calculate
 AGGREGATION_MEASURES = [
@@ -90,7 +58,7 @@ AGGREGATION_MEASURES = [
     "relative_humidity",  # Average relative humidity
     "total_precipitation",  # Total precipitation
     "precipitation_days",  # Number of days with precipitation
-    OUTCOME,  # Total flood fraction
+    summary_variable,  # Total flood fraction
 ]
 
 class _Scenarios(NamedTuple):
@@ -357,7 +325,7 @@ def pixel_main(
         model: str,
 ):
     years = list(range(1970, 2101))
-    measures = [OUTCOME]
+    measures = [summary_variable]
     scenarios = ["ssp126", "ssp245", "ssp585"]
     
 
@@ -365,7 +333,7 @@ def pixel_main(
 
     result_records = []
     for measure, scenario,  in itertools.product(measures, scenarios):
-        root = Path("/mnt/team/rapidresponse/pub/flooding/results/annual/raw") / scenario / OUTCOME
+        root = Path("/mnt/team/rapidresponse/pub/flooding/results/annual/raw") / scenario / summary_variable
         # check if model exists, if not, skip
         if not (root / f"{model}.nc").exists():
             continue
@@ -419,7 +387,7 @@ def pixel_main(
         ],
     ).sort_values(by=["location_id", "year_id"])
     save_root = Path("/mnt/team/rapidresponse/pub/flooding/results/output/raw-results")
-    save_path = save_root / hiearchy / model/ block_key / OUTCOME
+    save_path = save_root / hiearchy / model/ block_key / summary_variable
     mkdir(save_path, parents=True, exist_ok=True)
     filename = "000.parquet"
     results.to_parquet(

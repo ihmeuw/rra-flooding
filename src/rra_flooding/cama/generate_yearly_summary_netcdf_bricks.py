@@ -22,53 +22,11 @@ parser.add_argument("--model_root", type=str, default=rfc.MODEL_ROOT, help="Root
 # Parse arguments
 args = parser.parse_args()
 
-SCRIPT_ROOT = Path.cwd()
-REPO_ROOT = Path(str(SCRIPT_ROOT).split("rra-flooding")[0] + "rra-flooding")
-
-def parse_yaml_dictionary(variable: str, adjustment_num: str) -> dict:
-    # Read YAML
-    with open(REPO_ROOT / 'src' / 'rra_flooding'  / 'VARIABLE_DICT.yaml', 'r') as f:
-        yaml_data = yaml.safe_load(f)
-
-        # Extract variable-specific config
-    variable_dict = yaml_data['VARIABLE_DICT']
-    variable_list = variable_dict.get(variable, [])
-    if adjustment_num >= len(variable_list):
-        raise IndexError(f"Adjustment number {adjustment_num} out of range for variable '{variable}'")
-
-    entry = variable_list[adjustment_num]
-
-    # Build the return dict dynamically
-    result = {
-        "variable": variable,
-        "adjustment_type": entry['adjustment']['type'],
-        "summary_statistic": entry['summary_statistic']['type']
-    }
-
-    if entry['adjustment']['type'] == "shifted":
-        result["shift_type"] = entry['adjustment'].get("shift_type")
-        if entry['adjustment'].get("shift_type") == "percentile":
-            result["shift"] = entry['adjustment'].get("shift")
-            result["adjusted_variable"] = f"{variable}_{entry['adjustment']['type']}{entry['adjustment']['shift']}"
-        elif entry['adjustment'].get("shift_type") == "min":
-            result["adjusted_variable"] = f"{variable}_{entry['adjustment']['type']}min"
-        else:
-            raise ValueError(f"Unknown shift type: {entry['adjustment']['shift_type']}")
-    elif entry['adjustment']['type'] == "unadjusted":
-        result["adjusted_variable"] = f"{variable}_unadjusted"
-    else:
-        raise ValueError(f"Unknown adjustment type: {entry['adjustment']['type']}")
-
-    result["summary_variable"] = f"{result['adjusted_variable']}_{result['summary_statistic']}"
-
-    return result
-
 def create_yearly_summary_netcdf(model: str, scenario: str, variant: str, variable: str, adjustment_num: int, model_root: str) -> None:
     """Creates yearly summary NetCDF files by summing daily flood fraction values while adding a time dimension."""
     floodingdata = FloodingData(model_root)
 
-    variable_dict = parse_yaml_dictionary(variable, adjustment_num)
-    variable = variable_dict['variable']
+    variable_dict = floodingdata.parse_yaml_dictionary(variable, adjustment_num)
     adjusted_variable = variable_dict['adjusted_variable']
     summary_statistic = variable_dict['summary_statistic']
     summary_variable = variable_dict['summary_variable']
@@ -138,8 +96,7 @@ def stack_yearly_netcdf(model: str, scenario: str, variable: str, adjustment_num
     """
     floodingdata = FloodingData(model_root)
 
-    variable_dict = parse_yaml_dictionary(variable, adjustment_num)
-    variable = variable_dict['variable']
+    variable_dict = floodingdata.parse_yaml_dictionary(variable, adjustment_num)
     summary_variable = variable_dict['summary_variable']
 
     root = Path(f"/mnt/team/rapidresponse/pub/flooding/output/{variable}/")
@@ -172,8 +129,7 @@ def clean_up_yearly_netcdf_files(model: str, scenario: str, variable: str, adjus
     """
     floodingdata = FloodingData(model_root)
 
-    variable_dict = parse_yaml_dictionary(variable, adjustment_num)
-    variable = variable_dict['variable']
+    variable_dict = floodingdata.parse_yaml_dictionary(variable, adjustment_num)
     summary_variable = variable_dict['summary_variable']
 
     root = Path(f"/mnt/team/rapidresponse/pub/flooding/output/{variable}/")

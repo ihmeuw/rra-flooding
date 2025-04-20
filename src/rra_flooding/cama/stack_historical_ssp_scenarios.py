@@ -4,6 +4,8 @@ import pandas as pd # type: ignore
 import xarray as xr # type: ignore
 from rra_tools.shell_tools import mkdir, touch # type: ignore
 from pathlib import Path
+from rra_flooding.data import FloodingData
+from rra_flooding import constants as rfc
 import argparse
 import yaml
 
@@ -14,6 +16,7 @@ parser = argparse.ArgumentParser(description="Generate daily netcdf bricks for e
 parser.add_argument("--model", type=str, required=True, help="Climate model name")
 parser.add_argument("--variable", type=str, required=True, help="Variable to process")
 parser.add_argument("--adjustment_num", type=int, required=True, help="Adjustment number")
+parser.add_argument("--model_root", type=str, default=rfc.MODEL_ROOT, help="Root of the model directory")
 
 # Parse arguments
 args = parser.parse_args()
@@ -23,53 +26,13 @@ INPUT_ROOT = Path("/mnt/team/rapidresponse/pub/flooding/output/")
 OUTPUT_ROOT = Path("/mnt/team/rapidresponse/pub/flooding/results/annual/raw")
 mkdir(OUTPUT_ROOT, parents=True, exist_ok=True)
 
-SCRIPT_ROOT = Path.cwd()
-REPO_ROOT = Path(str(SCRIPT_ROOT).split("rra-flooding")[0] + "rra-flooding")
-
-def parse_yaml_dictionary(variable: str, adjustment_num: str) -> dict:
-    # Read YAML
-    with open(REPO_ROOT / 'src' / 'rra_flooding'  / 'VARIABLE_DICT.yaml', 'r') as f:
-        yaml_data = yaml.safe_load(f)
-
-        # Extract variable-specific config
-    variable_dict = yaml_data['VARIABLE_DICT']
-    variable_list = variable_dict.get(variable, [])
-    if adjustment_num >= len(variable_list):
-        raise IndexError(f"Adjustment number {adjustment_num} out of range for variable '{variable}'")
-
-    entry = variable_list[adjustment_num]
-
-    # Build the return dict dynamically
-    result = {
-        "variable": variable,
-        "adjustment_type": entry['adjustment']['type'],
-        "summary_statistic": entry['summary_statistic']['type']
-    }
-
-    if entry['adjustment']['type'] == "shifted":
-        result["shift_type"] = entry['adjustment'].get("shift_type")
-        if entry['adjustment'].get("shift_type") == "percentile":
-            result["shift"] = entry['adjustment'].get("shift")
-            result["adjusted_variable"] = f"{variable}_{entry['adjustment']['type']}{entry['adjustment']['shift']}"
-        elif entry['adjustment'].get("shift_type") == "min":
-            result["adjusted_variable"] = f"{variable}_{entry['adjustment']['type']}min"
-        else:
-            raise ValueError(f"Unknown shift type: {entry['adjustment']['shift_type']}")
-    elif entry['adjustment']['type'] == "unadjusted":
-        result["adjusted_variable"] = f"{variable}_unadjusted"
-    else:
-        raise ValueError(f"Unknown adjustment type: {entry['adjustment']['type']}")
-
-    result["summary_variable"] = f"{result['adjusted_variable']}_{result['summary_statistic']}"
-
-    return result
-
-def stack_historical_with_ssp(model: str, variable: str, adjustment_num: int) -> None:
+def stack_historical_with_ssp(model: str, variable: str, adjustment_num: int, model_root: str) -> None:
     """
     Stacks the historical NetCDF brick with each SSP scenario NetCDF brick for a given model.
     """
-    variable_dict = parse_yaml_dictionary(variable, adjustment_num)
-    variable = variable_dict['variable']
+    floodingdata = FloodingData(model_root)
+
+    variable_dict = floodingdata.parse_yaml_dictionary(variable, adjustment_num)
     summary_variable = variable_dict['summary_variable']
 
     historical_path = INPUT_ROOT / variable /"historical" / model / f"stacked_{summary_variable}.nc"
@@ -121,12 +84,13 @@ def stack_historical_with_ssp(model: str, variable: str, adjustment_num: int) ->
         os.chmod(output_file, 0o775) # temporary
 
 
-def clean_up_stacked_ssp_files(model: str, scenario: str, variable: str, adjustment_num: int) -> None:
+def clean_up_stacked_ssp_files(model: str, scenario: str, variable: str, adjustment_num: int, model_root: str) -> None:
     """
     Removes yearly summary NetCDF files for a given model and scenario.
     """
-    variable_dict = parse_yaml_dictionary(variable, adjustment_num)
-    variable = variable_dict['variable']
+    floodingdata = FloodingData(model_root)
+
+    variable_dict = floodingdata.parse_yaml_dictionary(variable, adjustment_num)
     summary_variable = variable_dict['summary_variable']
 
     input_dir = INPUT_ROOT / variable / scenario / model
@@ -138,10 +102,10 @@ def clean_up_stacked_ssp_files(model: str, scenario: str, variable: str, adjustm
         f.unlink()
         print(f"❌ Removed: {f}")
 
-def main(model: str, variable: str, adjustment_num: int) -> None:
+def main(model: str, variable: str, adjustment_num: int, model_root:str) -> None:
     """Runs individual steps in sequence."""
-    stack_historical_with_ssp(model, variable, adjustment_num)
-    # clean_up_stacked_ssp_files(model, scenario, variable, adjustment_num)
+    stack_historical_with_ssp(model, variable, adjustment_num, model_root)
+    # clean_up_stacked_ssp_files(model, scenario, variable, adjustment_num, model_root)
 
 # Run main function with parsed arguments
-main(args.model, args.variable, args.adjustment_num)
+main(args.model, args.variable, args.adjustment_num, args.model_root)
