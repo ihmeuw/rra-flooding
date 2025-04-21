@@ -108,8 +108,7 @@ for variable in VARIABLE_DICT.keys():
                             adjustment_num=i 
                         )
                     )
-                    print(f"Task created for {hiearchy}, {model}, {block_key}, {variable}, {i}")
-                    # Add task to the workflow
+
 
 
 print(f"Number of tasks: {len(tasks)}")
