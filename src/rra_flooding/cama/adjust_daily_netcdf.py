@@ -128,11 +128,61 @@ def standardize_flooding_fraction(model: str, scenario: str, variant: str,  year
         # Save the standardized flooding fraction as a new NetCDF file
         variable_ds["value"] = (('time', 'lat', 'lon'), variable_da_adjusted)
         # Update the attributes
-        if adjustment_type == "shifted":
-            if shift_type == "percentile":
-                variable_ds.attrs["long_name"] = f"{adjustment_type} {variable} {shift_type} {shift}"
-            elif shift_type == "min":
-                variable_ds.attrs["long_name"] = f"{adjustment_type} {variable} {shift_type}"
+        if shift_type == "percentile":
+            variable_ds.attrs["long_name"] = f"{adjustment_type} {variable} {shift_type} {shift}"
+        elif shift_type == "min":
+            variable_ds.attrs["long_name"] = f"{adjustment_type} {variable} {shift_type}"
+
+        floodingdata.save_output(variable_ds, variable, scenario, model, year, variable_name = adjusted_variable)
+    elif adjustment_type == "weighted":
+        shift_type = variable_dict["shift_type"]         
+
+        # Create a copy for standardization
+        variable_da_adjusted = variable_da.copy()
+        # Change the name of the variable in da_weighted
+        
+        # Get dimensions
+        days, height, width = variable_da.shape
+        
+        # Process each pixel (lat, lon) separately to handle all-NaN cases
+        for y in range(height):
+            for x in range(width):
+                pixel_values = variable_da[:, y, x]
+                # Skip if all values are NaN
+                valid_values = pixel_values[~np.isnan(pixel_values)]
+                if len(valid_values) > 0:
+                    if shift_type == "percentile":
+                        # Step 1: compute the percentile value
+                        shift = variable_dict["shift"]
+                        shift_value = np.percentile(valid_values, shift * 100)
+                    elif shift_type == "min":
+                        # Step 1: compute the minimum value
+                        shift_value = np.min(valid_values)
+                    else:
+                        raise ValueError(f"Unknown shift type: {shift_type}")
+                    
+                    # Step 2: Calculate the weight
+                    # Weights are calculated as 1 - shift_value unless shift_value is 1, then the weight is 1
+                    if shift_value == 1:
+                        weight = 1
+                    else:
+                        weight = 1 - shift_value
+                    # Step 3: subtract the shift and divide by the weight
+                    weighted_values = (pixel_values - shift_value) / weight
+
+                    # Step 4: # Replace negative values with 0
+                    weighted_values[weighted_values < 0] = 0
+
+                    # Store result
+                    variable_da_adjusted[:, y, x] = weighted_values
+
+        # Save the standardized flooding fraction as a new NetCDF file
+        variable_ds["value"] = (('time', 'lat', 'lon'), variable_da_adjusted)
+        # Update the attributes
+        if shift_type == "percentile":
+            variable_ds.attrs["long_name"] = f"{adjustment_type} {variable} {shift_type} {shift}"
+        elif shift_type == "min":
+            variable_ds.attrs["long_name"] = f"{adjustment_type} {variable} {shift_type}"
 
         floodingdata.save_output(variable_ds, variable, scenario, model, year, variable_name = adjusted_variable)
     else:
