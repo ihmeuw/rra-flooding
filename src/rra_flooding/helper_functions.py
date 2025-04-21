@@ -36,6 +36,15 @@ def parse_yaml_dictionary(variable: str, adjustment_num: str) -> dict:
             result["adjusted_variable"] = f"{variable}_{entry['adjustment']['type']}min"
         else:
             raise ValueError(f"Unknown shift type: {entry['adjustment']['shift_type']}")
+    elif entry['adjustment']['type'] == "weighted":
+        result["shift_type"] = entry['adjustment'].get("shift_type")
+        if entry['adjustment'].get("shift_type") == "percentile":
+            result["shift"] = entry['adjustment'].get("shift")
+            result["adjusted_variable"] = f"{variable}_{entry['adjustment']['type']}{entry['adjustment']['shift']}"
+        elif entry['adjustment'].get("shift_type") == "min":
+            result["adjusted_variable"] = f"{variable}_{entry['adjustment']['type']}min"
+        else:
+            raise ValueError(f"Unknown shift type: {entry['adjustment']['shift_type']}")
     elif entry['adjustment']['type'] == "unadjusted":
         result["adjusted_variable"] = f"{variable}_unadjusted"
     else:

@@ -1,9 +1,26 @@
 VARIABLE_DICT:
   fldfrc:
     - adjustment:
+        type: "weighted"
+        shift_type: "min"
+      summary_statistic:
+        type: "sum"
+    - adjustment:
         type: "shifted"
         shift_type: "percentile"
         shift: 0.1
+      summary_statistic:
+        type: "sum"
+    - adjustment:
+        type: "shifted"
+        shift_type: "percentile"
+        shift: 0.2
+      summary_statistic:
+        type: "sum"
+    - adjustment:
+        type: "shifted"
+        shift_type: "percentile"
+        shift: 0.3
       summary_statistic:
         type: "sum"
     - adjustment:
