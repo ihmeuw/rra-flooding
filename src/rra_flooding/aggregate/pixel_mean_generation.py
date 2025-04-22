@@ -26,6 +26,14 @@ hierarchy = args.hierarchy
 scenario = args.scenario
 variant = args.variant
 
+HIERARCHY_MAP = {
+    "gbd_2021": [
+        "gbd_2021",
+        "fhs_2021",
+    ],  # GBD pixel hierarchy maps to GBD and FHS locations
+    "lsae_1209": ["lsae_1209"],  # LSAE pixel hierarchy maps to LSAE locations
+}
+
 
 variable_dict = parse_yaml_dictionary(variable, adjustment_num)
 summary_variable = variable_dict['summary_variable']
@@ -69,9 +77,10 @@ def create_mean_results(hierarchy: str, scenario: str, variant: str) -> None:
     # change file permissions to 775
     output_file.chmod(0o775)
 
-# Call the function with parsed arguments
-create_mean_results(
-    hierarchy=hierarchy,
-    scenario=scenario,
-    variant=variant,
-)
+subset_hierarchies = HIERARCHY_MAP[hierarchy]
+for subset_hierarchy in subset_hierarchies:
+    create_mean_results(
+        hierarchy=subset_hierarchy,
+        scenario=scenario,
+        variant=variant,
+    )

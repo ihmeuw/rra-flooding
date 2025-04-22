@@ -18,8 +18,7 @@ root = Path("/mnt/team/rapidresponse/pub/flooding/results/output/raw-results")
 
 hierarchies = ["lsae_1209", "gbd_2021"]
 # hierarchies = ["gbd_2021"]
-models = ["ACCESS-CM2", "EC-Earth3", "INM-CM5-0", "MIROC6", "IPSL-CM6A-LR", "NorESM2-MM", "MRI-ESM2-0"]#, "GFDL-CM4"]
-# Was getting this error only for *every* non-126 GFDl run: Some parent locations are not in the results: [63156 63389 63390 ... 44847 44848 61467]
+models = ["ACCESS-CM2", "EC-Earth3", "INM-CM5-0", "MIROC6", "IPSL-CM6A-LR", "NorESM2-MM", "MRI-ESM2-0"]
 scenarios = ["ssp126", "ssp245", "ssp585"]
 
 VARIABLE_DICT = load_yaml_dictionary(YAML_PATH)

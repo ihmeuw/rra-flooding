@@ -18,7 +18,7 @@ root = Path("/mnt/team/rapidresponse/pub/flooding/results/output/raw-results")
 
 heirarchies = ["lsae_1209", "gbd_2021"]
 # heirarchies = ["lsae_1209"]
-models = ["ACCESS-CM2", "EC-Earth3", "INM-CM5-0", "MIROC6", "IPSL-CM6A-LR", "NorESM2-MM", "MRI-ESM2-0", "GFDL-CM4"]
+models = ["ACCESS-CM2", "EC-Earth3", "INM-CM5-0", "MIROC6", "IPSL-CM6A-LR", "NorESM2-MM", "MRI-ESM2-0"]
 
 
 VARIABLE_DICT = load_yaml_dictionary(YAML_PATH)

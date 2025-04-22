@@ -83,7 +83,8 @@ task_template = tool.get_task_template(
 # Add tasks
 tasks = []
 for variable in VARIABLE_DICT.keys():
-    num_adjustments = len(VARIABLE_DICT[variable])
+    # num_adjustments = len(VARIABLE_DICT[variable])
+    num_adjustments = 1
     for i in range(num_adjustments):
         for scenario in SCENARIOS:
             for model in MODELS:

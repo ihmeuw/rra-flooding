@@ -69,9 +69,13 @@ def standardize_flooding_fraction(model: str, scenario: str, variant: str,  year
         variable_da = variable_da - adjustment_raster_values
         if adjustment_type == "weighted":
             weight = 1 - adjustment_raster_values
-            variable_da = variable_da / weight
-            # Replace anywhere that weight was 0 with 0 in variable_da
-            variable_da[weight == 0] = 0
+            mask = weight == 0
+            safe_weight = weight.copy()
+            safe_weight[mask] = 1  # Avoid division by zero
+            # Perform the division using safe weights
+            variable_da = variable_da / safe_weight
+            # Then zero out results where weight was zero
+            variable_da[:, mask] = 0
 
         variable_da[variable_da < 0] = 0
 
