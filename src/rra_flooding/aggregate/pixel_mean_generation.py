@@ -74,8 +74,7 @@ def create_mean_results(hierarchy: str, scenario: str, variant: str) -> None:
     # Save the aggregated mean results
     output_file = root / f"{summary_variable}_{scenario}_mean_{variant}.parquet"
     combined_df.to_parquet(output_file, index=False)
-    # change file permissions to 775
-    output_file.chmod(0o775)
+    
 
 subset_hierarchies = HIERARCHY_MAP[hierarchy]
 for subset_hierarchy in subset_hierarchies:
